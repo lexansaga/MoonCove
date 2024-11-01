@@ -18,6 +18,7 @@ import Input from "@Components/Input";
 import Button from "@Components/Button";
 import Dropdown from "@Components/Drodpown";
 import { Colors } from "@/constants/Colors";
+import { Link } from "expo-router";
 
 const Profile: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
@@ -44,7 +45,14 @@ const Profile: React.FC = () => {
       <View style={styles.container}>
         {/* Header Section */}
         <View style={styles.header}>
-          <Feather name="home" size={24} color="#333" style={styles.homeIcon} />
+          <Link href="/HomeScreen">
+            <Feather
+              name="home"
+              size={24}
+              color="#333"
+              style={styles.homeIcon}
+            />
+          </Link>
         </View>
 
         <View style={styles.body}>
@@ -91,6 +99,7 @@ const Profile: React.FC = () => {
           <View style={styles.buttonWrapper}>
             <Button
               title="LOG-OUT"
+              href="/Login"
               onPress={() => console.log("Logged Out")}
               variant="Secondary"
             />
@@ -117,6 +126,7 @@ const styles = StyleSheet.create({
   header: {
     alignItems: "flex-start",
     marginBottom: 20,
+    marginLeft: 10,
   },
   homeIcon: {
     marginLeft: 10,

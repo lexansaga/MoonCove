@@ -71,6 +71,9 @@ const HomeScreen: React.FC = () => {
             <TouchableOpacity
               activeOpacity={0.8}
               style={[styles.menuItem, styles.timer]}
+              onPress={() => {
+                router.push("/Timer");
+              }} // Navigate to /Productivity
             >
               <Image
                 source={require("@Assets/timer.png")}
@@ -106,6 +109,9 @@ const HomeScreen: React.FC = () => {
 
             <TouchableOpacity
               activeOpacity={0.8}
+              onPress={() => {
+                router.push("/Profile");
+              }}
               style={[styles.menuItem, styles.profile, styles.profileSmall]}
             >
               <Image

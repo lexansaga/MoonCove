@@ -14,6 +14,7 @@ import { Colors } from "@/constants/Colors";
 import Input from "@/components/Input";
 import { Link } from "expo-router";
 import Button from "@/components/Button";
+import FloatingGlitter from "@Components/FloatingGlitters";
 
 const Login: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
@@ -58,15 +59,14 @@ const Login: React.FC = () => {
             variant={"Primary"}
           />
 
-          <Image
-            source={require("@Assets/glitters-left.png")}
-            style={styles.floatingGlittersLeft}
-          />
+          {/* <FloatingGlitter />
+          <FloatingGlitter />
 
-          <Image
-            source={require("@Assets/glitters-left.png")}
-            style={styles.floatingGlittersRight}
-          />
+          <FloatingGlitter />
+          <FloatingGlitter /> */}
+
+          <FloatingGlitter top={15} bottom={0} left={15} />
+          <FloatingGlitter top={230} bottom={0} left={280} right={10} />
         </View>
 
         {/* Sign Up Link */}

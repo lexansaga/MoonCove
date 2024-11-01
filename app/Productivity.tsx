@@ -10,10 +10,12 @@ import { Calendar, DateData } from "react-native-calendars";
 import { FontAwesome } from "@expo/vector-icons";
 import { Colors } from "@/constants/Colors";
 import Button from "@Components/Button";
+import FloatingGlitter from "@Components/FloatingGlitters";
+import { useRouter } from "expo-router";
 
 const Productivity: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<string>("");
-
+  const router = useRouter();
   // Sample markings with emoji icons for productivity
   const markedDates = {
     "2023-02-08": {
@@ -49,15 +51,15 @@ const Productivity: React.FC = () => {
   const onDayPress = (day: DateData) => {
     setSelectedDate(day.dateString);
     console.log("Selected Date: ", day.dateString);
+    router.push("/Session");
   };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Your Productivity</Text>
-      </View>
-
       <View style={styles.calendarContainer}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Your Productivity</Text>
+        </View>
         <Calendar
           current={"2023-02-01"}
           onDayPress={onDayPress}
@@ -83,6 +85,15 @@ const Productivity: React.FC = () => {
           }}
           markingType={"custom"}
         />
+
+        <FloatingGlitter />
+        <FloatingGlitter />
+        <FloatingGlitter />
+        <FloatingGlitter />
+        <FloatingGlitter />
+        <FloatingGlitter />
+        <FloatingGlitter />
+        <FloatingGlitter />
       </View>
 
       {/* Legend for Productivity Status */}
@@ -133,10 +144,9 @@ const Productivity: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
-    backgroundColor: Colors.dark.colorSecondary,
-    paddingHorizontal: 20,
+    backgroundColor: "#FDFCF8",
+
     alignItems: "center",
-    paddingTop: 40,
   },
   header: {
     alignItems: "center",
@@ -150,30 +160,38 @@ const styles = StyleSheet.create({
   calendarContainer: {
     width: "100%",
     backgroundColor: Colors.dark.colorPrimary,
-    borderRadius: 15,
-    paddingVertical: 20,
-    paddingHorizontal: 10,
+    borderRadius: 30,
+    borderTopStartRadius: 0,
+    borderTopEndRadius: 0,
+    paddingBottom: 30,
+    paddingHorizontal: 20,
     marginBottom: 20,
+    paddingTop: 80,
   },
   legendContainer: {
     flexDirection: "row",
     justifyContent: "space-around",
     width: "100%",
     marginVertical: 20,
+    flexWrap: "wrap",
+    gap: 4,
   },
   legendItem: {
     alignItems: "center",
     flexDirection: "row",
+    justifyContent: "center",
+    flexWrap: "wrap",
+    gap: 8,
   },
   legendColor: {
-    width: 15,
-    height: 15,
+    width: 20,
+    height: 20,
     borderRadius: 5,
-    marginRight: 8,
   },
   legendText: {
     color: "#333",
     fontFamily: "HazelnutMilktea-Bold",
+    fontSize: 20,
   },
   buttonWrapper: {
     marginTop: 20,

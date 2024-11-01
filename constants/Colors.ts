@@ -31,6 +31,10 @@ export const Colors = {
     colorText: "#333333",
     colorTextBrown: "#4F3C39",
     colorTextBrownAccent: "#cca29b",
+    colorGreen: "#88B889",
+    colorRed: "#E05A47",
+    colorGrey: "#50526D",
+    colorBlue: "#87C0C6", // Green for Excellent
   },
   status: {
     worst: "#FF6B6B", // Bright Red for Worst

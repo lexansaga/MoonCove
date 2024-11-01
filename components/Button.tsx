@@ -14,6 +14,7 @@ interface ButtonProps {
   isLoading?: boolean;
   onPress?: () => void;
   href?: string; // Optional href prop to navigate
+  customStyles?: Object;
 }
 
 export default function Button({
@@ -22,6 +23,7 @@ export default function Button({
   isLoading = false,
   onPress,
   href,
+  customStyles,
 }: ButtonProps) {
   const content = (
     <>
@@ -66,7 +68,12 @@ export default function Button({
     <TouchableOpacity
       style={[
         styles.button,
-        variant === "Primary" ? styles.primary : styles.secondary,
+        customStyles
+          ? customStyles
+          : variant === "Primary"
+          ? styles.primary
+          : styles.secondary,
+        ,
       ]}
       onPress={onPress}
       disabled={isLoading}
