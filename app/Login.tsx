@@ -1,31 +1,131 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
-  TextInput,
-  TouchableOpacity,
   Image,
   StyleSheet,
   ScrollView,
   RefreshControl,
+  Alert,
+  ToastAndroid,
+  TouchableOpacity,
 } from "react-native";
-import { FontAwesome } from "@expo/vector-icons";
 import { Colors } from "@/constants/Colors";
 import Input from "@/components/Input";
-import { Link } from "expo-router";
+import { Link, useRouter } from "expo-router";
 import Button from "@/components/Button";
 import FloatingGlitter from "@Components/FloatingGlitters";
+import { signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
+import { get, ref } from "firebase/database";
+import { authentication, database } from "@/firebase/Firebase";
+import useUser from "@/store/User.store";
 
 const Login: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const setUser = useUser((state) => state.setUser);
+  const currentUser = useUser();
+  const router = useRouter();
+
+  useEffect(() => {
+    // Check if user is already logged in
+    const unsubscribe = onAuthStateChanged(authentication, (user) => {
+      if (user) {
+        router.replace("/HomeScreen"); // Redirect to HomeScreen if already logged in
+      }
+    });
+
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, []);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    // Simulate an API call or any asynchronous operation
     setTimeout(() => {
       setRefreshing(false);
     }, 2000);
   }, []);
+
+  const handleLogin = async () => {
+    try {
+      const userCredential = await signInWithEmailAndPassword(
+        authentication,
+        email,
+        password
+      );
+      const user = userCredential.user;
+
+      // Fetch user data from Firebase Realtime Database
+      const userRef = ref(database, `Users/${user.uid}`);
+      const snapshot = await get(userRef);
+
+      if (snapshot.exists()) {
+        const userData = snapshot.val();
+        setUser({
+          id: user.uid,
+          email: userData.email,
+          username: userData.username,
+          gender: userData.gender,
+        });
+
+        ToastAndroid.showWithGravity(
+          `Welcome ${userData.username}`,
+          ToastAndroid.LONG,
+          ToastAndroid.CENTER
+        );
+        router.replace("/HomeScreen"); // Use replace to prevent going back to login
+      } else {
+        ToastAndroid.showWithGravity(
+          "User data not found in the database.",
+          ToastAndroid.LONG,
+          ToastAndroid.CENTER
+        );
+      }
+    } catch (error: any) {
+      console.error("Error during login:", error);
+      let errorMessage = "Login failed. Please try again.";
+
+      if (error.code) {
+        switch (error.code) {
+          case "auth/invalid-email":
+            errorMessage =
+              "The email address format is incorrect. Please enter a valid email.";
+            break;
+          case "auth/user-disabled":
+            errorMessage =
+              "This account has been disabled. Please contact support for assistance.";
+            break;
+          case "auth/user-not-found":
+            errorMessage =
+              "No account found with this email. Please check the email or sign up.";
+            break;
+          case "auth/wrong-password":
+            errorMessage =
+              "The password you entered is incorrect. Please try again or reset your password.";
+            break;
+          case "auth/network-request-failed":
+            errorMessage =
+              "Network error. Please check your internet connection and try again.";
+            break;
+          case "auth/invalid-credential":
+            errorMessage =
+              "The credentials provided are invalid. Please try logging in again or contact support.";
+            break;
+          default:
+            errorMessage =
+              "An unexpected error occurred. Please try again later or contact support.";
+            break;
+        }
+      }
+
+      ToastAndroid.showWithGravity(
+        errorMessage,
+        ToastAndroid.LONG,
+        ToastAndroid.CENTER
+      );
+    }
+  };
 
   return (
     <ScrollView
@@ -38,32 +138,28 @@ const Login: React.FC = () => {
         {/* Logo Section */}
         <View style={styles.logoContainer}>
           <Image
-            source={require("@Assets//logo-light.png")}
+            source={require("@Assets/logo-light.png")}
             style={styles.logo}
           />
-
           <Image source={require("@Assets/user.png")} style={styles.userLogo} />
         </View>
 
         {/* Input Section */}
         <View style={styles.inputContainer}>
-          <Input placeholder="Username" />
-          <Input placeholder="Password" secureTextEntry />
-
-          <Button
-            title="Signin"
-            href={"/HomeScreen"}
-            onPress={() => {
-              console.log("Pressed Signin button");
-            }}
-            variant={"Primary"}
+          <Input
+            placeholder="Email"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+          />
+          <Input
+            placeholder="Password"
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
           />
 
-          {/* <FloatingGlitter />
-          <FloatingGlitter />
-
-          <FloatingGlitter />
-          <FloatingGlitter /> */}
+          <Button title="Signin" onPress={handleLogin} variant={"Primary"} />
 
           <FloatingGlitter top={15} bottom={0} left={15} />
           <FloatingGlitter top={230} bottom={0} left={280} right={10} />
@@ -113,10 +209,6 @@ const styles = StyleSheet.create({
     width: 180,
     height: 120,
   },
-
-  iconContainer: {
-    marginBottom: 30,
-  },
   inputContainer: {
     width: "90%",
     backgroundColor: Colors.default.colorPrimary,
@@ -146,24 +238,6 @@ const styles = StyleSheet.create({
     fontWeight: "normal",
     fontFamily: "HazelnutMilktea-Bold",
     fontSize: 18,
-  },
-  floatingGlittersLeft: {
-    position: "absolute",
-    width: 20,
-    height: 20,
-    bottom: 15,
-    left: 15,
-    objectFit: "contain",
-    zIndex: 2,
-  },
-  floatingGlittersRight: {
-    position: "absolute",
-    width: 20,
-    height: 20,
-    top: 15,
-    right: 15,
-    objectFit: "contain",
-    zIndex: 2,
   },
 });
 

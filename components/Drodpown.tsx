@@ -15,12 +15,14 @@ interface PopupSelectProps {
   label: string;
   options: Array<{ id: string; label: string }>;
   onSelect: (value: string) => void;
+  disabled?: boolean;
 }
 
 export default function Dropdown({
   label,
   options,
   onSelect,
+  disabled,
 }: PopupSelectProps) {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedValue, setSelectedValue] = useState<string | null>(null);
@@ -32,7 +34,7 @@ export default function Dropdown({
   };
 
   return (
-    <View>
+    <View pointerEvents={disabled === true ? "none" : "auto"}>
       {/* Display selected value or label */}
       <TouchableOpacity
         style={styles.selectContainer}

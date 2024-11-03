@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,57 +7,133 @@ import {
   ScrollView,
   Image,
   TextInput,
+  Alert,
 } from "react-native";
 import { FontAwesome } from "@expo/vector-icons";
 import { Colors } from "@/constants/Colors";
 import Button from "./Button";
 import ModalComponent from "@Components/Modal";
+import { ref, push, update } from "firebase/database";
+import { authentication, database } from "@/firebase/Firebase";
 
 interface Task {
-  id: number;
+  id: string;
   title: string;
   description?: string;
-  completed: boolean;
+  status: "completed" | "in-progress";
+}
+
+interface SessionData {
+  id: string;
+  title: string;
+  tasks: Task[];
 }
 
 interface TasksProps {
   onClose: () => void;
+  sessionData?: SessionData; // Prop to accept session data
+  userId: string;
+  selectedDate: string;
 }
 
-const Tasks: React.FC<TasksProps> = ({ onClose }) => {
-  const [tasks, setTasks] = useState<Task[]>([
-    { id: 1, title: "Task 1", completed: true },
-    { id: 2, title: "Task 2", completed: true },
-    { id: 3, title: "Task 3", completed: true },
-    { id: 4, title: "Task 4", completed: false },
-  ]);
+const Tasks: React.FC<TasksProps> = ({
+  onClose,
+  sessionData,
+  selectedDate,
+}) => {
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [isEditing, setIsEditing] = useState(false);
-  const [title, setTitle] = useState("Add Title");
+  const [title, setTitle] = useState(sessionData?.title || "Add Title");
   const [tempTitle, setTempTitle] = useState(title);
+  const currentUserID = authentication.currentUser?.uid;
 
-  const completedTasksCount = tasks.filter((task) => task.completed).length;
-  const progressPercentage = (completedTasksCount / tasks.length) * 100;
+  useEffect(() => {
+    console.log(selectedDate);
+    console.log(sessionData?.id);
+    // Load tasks from sessionData if available
+    if (sessionData) {
+      setTasks(sessionData.tasks || []); // Ensure tasks is an array
+      setTitle(sessionData.title);
+      setTempTitle(sessionData.title);
+    }
+  }, [sessionData]);
 
-  const toggleTaskCompletion = (id: number) => {
-    setTasks(
-      tasks.map((task) =>
-        task.id === id ? { ...task, completed: !task.completed } : task
-      )
+  const completedTasksCount = tasks.filter(
+    (task) => task.status === "completed"
+  ).length;
+  const progressPercentage =
+    tasks.length > 0 ? (completedTasksCount / tasks.length) * 100 : 0;
+
+  const toggleTaskStatus = async (id: string) => {
+    const updatedTasks = tasks.map((task) =>
+      task.id === id
+        ? {
+            ...task,
+            status: task.status === "completed" ? "in-progress" : "completed",
+          }
+        : task
     );
+    setTasks(updatedTasks);
+
+    // Save progress to Firebase
+    try {
+      const sessionRef = ref(
+        database,
+        `Sessions/${currentUserID}/${selectedDate}/sessions/${sessionData?.id}/`
+      );
+      await update(sessionRef, { tasks: updatedTasks });
+      console.log("Task status updated in Firebase.");
+    } catch (error) {
+      console.error("Error updating task status:", error);
+      Alert.alert("Error", "Failed to update task status. Please try again.");
+    }
   };
 
-  const addTask = () => {
+  const addTask = async () => {
     if (newTaskTitle.trim()) {
       const newTask: Task = {
-        id: tasks.length + 1,
+        id: `task-${Date.now()}`,
         title: newTaskTitle,
-        completed: false,
+        status: "in-progress",
       };
-      setTasks([...tasks, newTask]);
+      const updatedTasks = [...tasks, newTask];
+      setTasks(updatedTasks);
       setNewTaskTitle("");
+
+      // Save new task to Firebase
+      try {
+        if (!sessionData?.id) {
+          // Push a new session with a unique key if it doesn't exist
+          const newSessionRef = push(
+            ref(database, `Sessions/${currentUserID}/${selectedDate}/sessions`)
+          );
+          const newSessionKey = newSessionRef.key;
+          if (newSessionKey) {
+            await update(newSessionRef, {
+              id: newSessionKey,
+              title: title,
+              tasks: updatedTasks,
+            });
+            console.log("New session with task added to Firebase.");
+          }
+        } else {
+          // Update the existing session
+          const sessionRef = ref(
+            database,
+            `Sessions/${currentUserID}/${selectedDate}/sessions/${sessionData.id}`
+          );
+          await update(sessionRef, {
+            tasks: updatedTasks,
+          });
+          console.log("New task added to existing session in Firebase.");
+        }
+      } catch (error) {
+        console.error("Error adding new task:", error);
+        Alert.alert("Error", "Failed to add new task. Please try again.");
+      }
     }
   };
 
@@ -66,18 +142,48 @@ const Tasks: React.FC<TasksProps> = ({ onClose }) => {
     setIsModalVisible(true);
   };
 
-  const saveTaskDetails = () => {
+  const saveTaskDetails = async () => {
     if (selectedTask) {
-      setTasks(
-        tasks.map((task) => (task.id === selectedTask.id ? selectedTask : task))
+      const updatedTasks = tasks.map((task) =>
+        task.id === selectedTask.id ? selectedTask : task
       );
+      setTasks(updatedTasks);
       setIsModalVisible(false);
+
+      // Save edited task to Firebase
+      try {
+        const sessionRef = ref(
+          database,
+          `Sessions/${currentUserID}/${selectedDate}/sessions/${sessionData?.id}`
+        );
+        await update(sessionRef, { tasks: updatedTasks });
+        console.log("Task details updated in Firebase.");
+      } catch (error) {
+        console.error("Error updating task details:", error);
+        Alert.alert(
+          "Error",
+          "Failed to update task details. Please try again."
+        );
+      }
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setTitle(tempTitle);
     setIsEditing(false);
+
+    // Save edited session title to Firebase
+    try {
+      const sessionRef = ref(
+        database,
+        `Sessions/${currentUserID}/${selectedDate}/sessions/${sessionData?.id}`
+      );
+      await update(sessionRef, { title: tempTitle });
+      console.log("Session title updated in Firebase.");
+    } catch (error) {
+      console.error("Error updating session title:", error);
+      Alert.alert("Error", "Failed to update session title. Please try again.");
+    }
   };
 
   const handleEdit = () => {
@@ -127,19 +233,23 @@ const Tasks: React.FC<TasksProps> = ({ onClose }) => {
           <TouchableOpacity
             key={task.id}
             style={styles.taskContainer}
-            onPress={() => toggleTaskCompletion(task.id)}
+            onPress={() => toggleTaskStatus(task.id)}
             onLongPress={() => openEditModal(task)}
           >
             <FontAwesome
-              name={task.completed ? "check-square-o" : "square-o"}
+              name={task.status === "completed" ? "check-square-o" : "square-o"}
               size={24}
-              color={task.completed ? Colors.default.colorTextBrown : "#000"}
+              color={
+                task.status === "completed"
+                  ? Colors.default.colorTextBrown
+                  : "#000"
+              }
               style={styles.checkboxIcon}
             />
             <Text
               style={[
                 styles.taskText,
-                task.completed && styles.taskTextCompleted,
+                task.status === "completed" && styles.taskTextCompleted,
               ]}
             >
               {task.title}
@@ -290,7 +400,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     padding: 1,
     borderWidth: 1,
-    borderColor: Colors?.default.colorTextBrown,
+    borderColor: Colors.default.colorTextBrown,
   },
   progressBarFill: {
     height: "100%",

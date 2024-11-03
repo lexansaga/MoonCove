@@ -77,6 +77,7 @@ export default function Button({
       ]}
       onPress={onPress}
       disabled={isLoading}
+      activeOpacity={0.8}
     >
       {content}
     </TouchableOpacity>

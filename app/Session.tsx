@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -13,9 +13,13 @@ import { AntDesign, FontAwesome5 } from "@expo/vector-icons";
 import { Colors } from "@/constants/Colors";
 import FloatingGlitter from "@Components/FloatingGlitters";
 import { VictoryPie } from "victory-native";
-import { Link } from "expo-router";
+import { Link, useLocalSearchParams } from "expo-router";
 import { globalStyles } from "@/constants/GlobalStyles";
 import Tasks from "@Components/Tasks";
+import { get, ref } from "firebase/database";
+import { database } from "@/firebase/Firebase";
+import useUser from "@/store/User.store";
+import useProductivity from "@/store/Productivity.store";
 
 interface DataPoint {
   x: string;
@@ -23,12 +27,59 @@ interface DataPoint {
   color: string;
 }
 
+interface SessionData {
+  id: string;
+  title: string;
+  tasks: {
+    id: string;
+    title: string;
+    description: string;
+    status: string;
+  }[];
+}
+
 const Session: React.FC = () => {
+  const { selectedDate } = useLocalSearchParams();
+  // const selectedDate = "2024-11-01";
   const [activeSlice, setActiveSlice] = useState<DataPoint | null>(null);
   const [touchX, setTouchX] = useState<number>(0);
   const [touchY, setTouchY] = useState<number>(0);
   const [showTasks, setShowTasks] = useState(false);
+  const [sessions, setSessions] = useState<SessionData[]>([]);
+  const [selectedSession, setSelectedSession] = useState<SessionData | null>(
+    null
+  );
   const slideAnim = useRef(new Animated.Value(0)).current;
+  const user = useUser();
+  // const productivity = useProductivity((state) => ({
+  //   selectedDate: state.selectedDate,
+  // }));
+
+  useEffect(() => {
+    // Fetch user sessions from Firebase
+    const fetchSessions = async () => {
+      try {
+        const userRef = ref(
+          database,
+          `Sessions/${user.id}/${selectedDate}/sessions`
+        );
+        const snapshot = await get(userRef);
+        if (snapshot.exists()) {
+          const data = snapshot.val();
+          const sessionsArray = Object.keys(data).map((key) => ({
+            id: key,
+            ...data[key],
+          }));
+          setSessions(sessionsArray);
+          console.log(sessionsArray);
+        }
+      } catch (error) {
+        console.error("Error fetching sessions:", error);
+      }
+    };
+
+    fetchSessions();
+  }, []);
 
   const data: DataPoint[] = [
     { x: "Worst", y: 30, color: "#FF6B6B" },
@@ -52,13 +103,19 @@ const Session: React.FC = () => {
     })
   ).current;
 
-  const toggleTasks = () => {
+  const toggleTasks = (session?: SessionData) => {
+    if (session) {
+      setSelectedSession(session);
+    }
     if (showTasks) {
       Animated.timing(slideAnim, {
         toValue: 500,
         duration: 300,
         useNativeDriver: true,
-      }).start(() => setShowTasks(false));
+      }).start(() => {
+        setShowTasks(false);
+        setSelectedSession(null);
+      });
     } else {
       setShowTasks(true);
       Animated.timing(slideAnim, {
@@ -138,37 +195,42 @@ const Session: React.FC = () => {
       >
         <TouchableOpacity
           style={[styles.sessionButton, styles.addSessionButton]}
-          onPress={toggleTasks}
+          onPress={() => toggleTasks()}
         >
           <AntDesign name="pluscircleo" size={60} color={"#fff"} />
           <Text style={[styles.sessionButtonText, styles.addSessionButtonText]}>
             Add Session
           </Text>
         </TouchableOpacity>
-        {[...Array(5)].map((_, index) => (
+        {sessions.map((session) => (
           <TouchableOpacity
             style={styles.sessionButton}
-            key={index}
+            key={session.id}
             activeOpacity={0.7}
+            onPress={() => toggleTasks(session)}
           >
             <Image
               source={require("@Assets/open-book.png")}
               alt="Session"
               style={styles.sessionImage}
             />
-            <Text style={styles.sessionButtonText}>Session {index + 1}</Text>
+            <Text style={styles.sessionButtonText}>{session.title}</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
 
-      {showTasks && (
+      {showTasks && selectedSession && (
         <Animated.View
           style={[
             styles.tasksContainer,
             { transform: [{ translateY: slideAnim }] },
           ]}
         >
-          <Tasks onClose={toggleTasks} />
+          <Tasks
+            onClose={toggleTasks}
+            sessionData={selectedSession}
+            selectedDate={selectedDate}
+          />
         </Animated.View>
       )}
     </ScrollView>

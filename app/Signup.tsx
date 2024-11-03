@@ -2,35 +2,123 @@ import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
-  TextInput,
-  TouchableOpacity,
   Image,
   StyleSheet,
   ScrollView,
   RefreshControl,
+  Alert,
+  ToastAndroid,
+  TouchableOpacity,
 } from "react-native";
-import { FontAwesome } from "@expo/vector-icons";
 import { Colors } from "@/constants/Colors";
 import Input from "@/components/Input";
 import { Link } from "expo-router";
-import Select from "@/components/Drodpown";
-import Button from "@/components/Button";
 import Dropdown from "@/components/Drodpown";
+import Button from "@/components/Button";
+import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
+import { getDatabase, ref, set } from "firebase/database";
+import { authentication, database } from "@/firebase/Firebase";
 
 const Signup: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [gender, setGender] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    // Simulate an API call or any asynchronous operation
     setTimeout(() => {
       setRefreshing(false);
     }, 2000);
   }, []);
 
   const handleSelect = (option: string) => {
-    console.log("Selected option:", option);
+    setGender(option);
   };
+
+  const handleSignup = async () => {
+    if (!username || !email || !gender || !password || !confirmPassword) {
+      ToastAndroid.showWithGravity(
+        "Please fill in all fields",
+        ToastAndroid.SHORT,
+        ToastAndroid.CENTER
+      );
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      ToastAndroid.showWithGravity(
+        "Passwords do not match",
+        ToastAndroid.SHORT,
+        ToastAndroid.CENTER
+      );
+      return;
+    }
+
+    try {
+      const userCredential = await createUserWithEmailAndPassword(
+        authentication,
+        email,
+        password
+      );
+      const user = userCredential.user;
+
+      // Save user data to Realtime Database
+      await set(ref(database, `Users/${user.uid}`), {
+        username,
+        email,
+        gender,
+      });
+
+      ToastAndroid.showWithGravity(
+        "User registered successfully!",
+        ToastAndroid.SHORT,
+        ToastAndroid.CENTER
+      );
+    } catch (error: any) {
+      console.error("Error during signup:", error);
+
+      let errorMessage = "Signup Failed: An unexpected error occurred.";
+
+      // Handle specific Firebase error codes
+      if (error.code) {
+        switch (error.code) {
+          case "auth/email-already-in-use":
+            errorMessage =
+              "The email address is already in use by another account.";
+            break;
+          case "auth/invalid-email":
+            errorMessage =
+              "The email address is not valid. Please enter a valid email.";
+            break;
+          case "auth/weak-password":
+            errorMessage =
+              "The password is too weak. Please choose a stronger password.";
+            break;
+          case "auth/operation-not-allowed":
+            errorMessage =
+              "Email/password accounts are not enabled. Please contact support.";
+            break;
+          case "auth/network-request-failed":
+            errorMessage =
+              "Network error. Please check your internet connection and try again.";
+            break;
+          default:
+            errorMessage = "Signup Failed: " + error.message;
+            break;
+        }
+      }
+
+      ToastAndroid.showWithGravity(
+        errorMessage,
+        ToastAndroid.LONG,
+        ToastAndroid.CENTER
+      );
+    }
+  };
+
   return (
     <ScrollView
       contentContainerStyle={styles.scrollViewContainer}
@@ -42,21 +130,27 @@ const Signup: React.FC = () => {
         {/* Logo Section */}
         <View style={styles.logoContainer}>
           <Image
-            source={require("@Assets//logo-light.png")}
+            source={require("@Assets/logo-light.png")}
             style={styles.logo}
           />
 
-          <Image
-            source={require("@Assets//user.png")}
-            style={styles.userLogo}
-          />
+          <Image source={require("@Assets/user.png")} style={styles.userLogo} />
         </View>
 
         {/* Input Section */}
         <View style={styles.inputContainer}>
           <Text style={styles.formTitle}>Registration</Text>
-          <Input placeholder="Username" />
-          <Input placeholder="Email" keyboardType="email-address" />
+          <Input
+            placeholder="Username"
+            value={username}
+            onChangeText={setUsername}
+          />
+          <Input
+            placeholder="Email"
+            keyboardType="email-address"
+            value={email}
+            onChangeText={setEmail}
+          />
           <Dropdown
             label="Gender"
             options={[
@@ -66,16 +160,26 @@ const Signup: React.FC = () => {
             ]}
             onSelect={handleSelect}
           />
-          <Input placeholder="Password" secureTextEntry />
-          <Input placeholder="Re-Enter Password" secureTextEntry />
-          <Button title="Signup" onPress={() => {}} variant={"Primary"} />
+          <Input
+            placeholder="Password"
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
+          />
+          <Input
+            placeholder="Re-Enter Password"
+            secureTextEntry
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+          />
+          <Button title="Signup" onPress={handleSignup} variant={"Primary"} />
           <Image
-            source={require("@Assets//glitters-left.png")}
+            source={require("@Assets/glitters-left.png")}
             style={styles.floatingGlittersLeft}
           />
 
           <Image
-            source={require("@Assets//glitters-left.png")}
+            source={require("@Assets/glitters-left.png")}
             style={styles.floatingGlittersRight}
           />
         </View>
@@ -123,10 +227,6 @@ const styles = StyleSheet.create({
     width: 100,
     height: 80,
   },
-
-  iconContainer: {
-    marginBottom: 30,
-  },
   inputContainer: {
     width: "90%",
     backgroundColor: Colors.default.colorPrimary,
@@ -141,7 +241,6 @@ const styles = StyleSheet.create({
     position: "relative",
     zIndex: 2,
   },
-
   signUpContainer: {
     flexDirection: "row",
     alignItems: "center",

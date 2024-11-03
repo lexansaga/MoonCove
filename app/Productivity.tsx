@@ -1,67 +1,161 @@
-import React, { useState } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  RefreshControl,
+  Alert,
 } from "react-native";
 import { Calendar, DateData } from "react-native-calendars";
-import { FontAwesome } from "@expo/vector-icons";
+import { FontAwesome, FontAwesome6 } from "@expo/vector-icons";
 import { Colors } from "@/constants/Colors";
 import Button from "@Components/Button";
 import FloatingGlitter from "@Components/FloatingGlitters";
-import { useRouter } from "expo-router";
+import { Link, useRouter } from "expo-router";
+import { globalStyles } from "@/constants/GlobalStyles";
+import { ref, onValue } from "firebase/database";
+import { authentication, database } from "@/firebase/Firebase";
+import useUser from "@/store/User.store";
 
 const Productivity: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<string>("");
+  const [refreshing, setRefreshing] = useState(false);
+  const [markedDates, setMarkedDates] = useState<any>({});
+  const user = useUser();
+
+  const currentUserId = authentication.currentUser?.uid;
   const router = useRouter();
-  // Sample markings with emoji icons for productivity
-  const markedDates = {
-    "2023-02-08": {
-      marked: true,
-      dotColor: "transparent",
-      customStyles: {
-        container: { backgroundColor: Colors.status.good },
-        text: { color: "#333" },
-        emoji: "😊",
-      },
-    },
-    "2023-02-09": {
-      marked: true,
-      dotColor: "transparent",
-      customStyles: {
-        container: { backgroundColor: Colors.status.excellent },
-        text: { color: "#333" },
-        emoji: "😄",
-      },
-    },
-    "2023-02-10": {
-      marked: true,
-      dotColor: "transparent",
-      customStyles: {
-        container: { backgroundColor: Colors.status.worst },
-        text: { color: "#333" },
-        emoji: "😫",
-      },
-    },
-  };
+
+  useEffect(() => {
+    const fetchSessions = async () => {
+      if (!currentUserId) {
+        Alert.alert("Error", "User ID is missing.");
+        return;
+      }
+
+      try {
+        // Fetch sessions data from Firebase
+        const userSessionsRef = ref(database, `Sessions/${currentUserId}/`);
+        onValue(userSessionsRef, (snapshot) => {
+          const data = snapshot.val();
+          if (data) {
+            const newMarkedDates: any = {};
+            Object.keys(data).forEach((date) => {
+              const dateData = data[date];
+              const sessions = dateData.sessions
+                ? Object.values(dateData.sessions)
+                : [];
+
+              if (!Array.isArray(sessions)) {
+                console.error(
+                  `Unexpected data format for sessions on date ${date}:`,
+                  sessions
+                );
+                return;
+              }
+
+              const totalTasks = sessions.reduce(
+                (sum, session: any) => sum + (session.tasks?.length || 0),
+                0
+              );
+              const completedTasks = sessions.reduce(
+                (sum, session: any) =>
+                  sum +
+                  (session.tasks?.filter(
+                    (task: any) => task?.status === "completed"
+                  ).length || 0),
+                0
+              );
+
+              let statusColor = Colors.status.worst;
+              let emoji = "😫";
+
+              if (totalTasks > 0) {
+                const completionRate = (completedTasks / totalTasks) * 100;
+                if (completionRate === 100) {
+                  statusColor = Colors.status.excellent;
+                  emoji = "😄";
+                } else if (completionRate > 50) {
+                  statusColor = Colors.status.good;
+                  emoji = "😊";
+                } else if (completionRate > 0) {
+                  statusColor = Colors.status.bad;
+                  emoji = "😟";
+                }
+              }
+
+              newMarkedDates[date] = {
+                marked: true,
+                dotColor: "transparent",
+                customStyles: {
+                  container: { backgroundColor: statusColor },
+                  text: { color: "#333" },
+                  emoji,
+                },
+              };
+            });
+
+            if (
+              JSON.stringify(newMarkedDates) !== JSON.stringify(markedDates)
+            ) {
+              setMarkedDates(newMarkedDates);
+            }
+          }
+        });
+      } catch (error) {
+        console.error("Error processing snapshot data:", error);
+        Alert.alert(
+          "Error",
+          "Failed to fetch or process data. Please try again."
+        );
+      }
+    };
+
+    fetchSessions();
+  }, [currentUserId]);
 
   // Handle date selection
   const onDayPress = (day: DateData) => {
     setSelectedDate(day.dateString);
     console.log("Selected Date: ", day.dateString);
-    router.push("/Session");
+
+    router.push({
+      pathname: "/Session",
+      params: { selectedDate: day.dateString },
+    });
+  };
+
+  // Refresh control function
+  const onRefresh = () => {
+    setRefreshing(true);
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 2000);
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView
+      contentContainerStyle={styles.container}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
+      <TouchableOpacity style={styles.backButton} activeOpacity={0.7}>
+        <FontAwesome6
+          name="chevron-left"
+          size={18}
+          color={Colors.default.colorSecondary}
+        />
+        <Link href={"/HomeScreen"} style={globalStyles.overlink}></Link>
+      </TouchableOpacity>
       <View style={styles.calendarContainer}>
         <View style={styles.header}>
           <Text style={styles.title}>Your Productivity</Text>
         </View>
         <Calendar
-          current={"2023-02-01"}
+          current={new Date().toISOString().split("T")[0]}
           onDayPress={onDayPress}
           markedDates={{
             ...markedDates,
@@ -145,7 +239,6 @@ const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     backgroundColor: "#FDFCF8",
-
     alignItems: "center",
   },
   header: {
@@ -198,6 +291,20 @@ const styles = StyleSheet.create({
     width: "100%",
     justifyContent: "center",
     alignItems: "center",
+  },
+  backButton: {
+    position: "absolute",
+    top: 45,
+    left: 15,
+    borderRadius: 3,
+    borderWidth: 1,
+    borderColor: Colors.default.colorSecondary,
+    aspectRatio: 1,
+    height: 40,
+    width: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 2,
   },
 });
 

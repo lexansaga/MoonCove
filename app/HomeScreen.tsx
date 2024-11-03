@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,17 +7,58 @@ import {
   TouchableOpacity,
   ScrollView,
   RefreshControl,
+  Alert,
 } from "react-native";
 import { FontAwesome } from "@expo/vector-icons";
 import { Colors } from "@/constants/Colors";
 import { Link, useRouter } from "expo-router";
+import { onAuthStateChanged } from "firebase/auth";
+import { get, ref } from "firebase/database";
+import { authentication, database } from "@/firebase/Firebase";
+import useUser from "@/store/User.store";
 
 const HomeScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
-  const router = useRouter(); // Initialize useRouter
+  const router = useRouter();
+  const currentUser = useUser();
+  const setUser = useUser((state) => state.setUser);
+
+  // Fetch and set the current user data
+  useEffect(() => {
+    const fetchCurrentUser = async (userId: string) => {
+      try {
+        const userRef = ref(database, `Users/${userId}`);
+        const snapshot = await get(userRef);
+        if (snapshot.exists()) {
+          const userData = snapshot.val();
+          setUser({
+            id: userId,
+            email: userData.email,
+            username: userData.username,
+            gender: userData.gender,
+          });
+        } else {
+          Alert.alert("Error", "User data not found in the database.");
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+        Alert.alert("Error", "Failed to fetch user data.");
+      }
+    };
+
+    const unsubscribe = onAuthStateChanged(authentication, (user) => {
+      if (user) {
+        fetchCurrentUser(user.uid);
+      } else {
+        router.replace("/Login"); // Redirect to login if not authenticated
+      }
+    });
+
+    return () => unsubscribe(); // Clean up the subscription
+  }, []);
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    // Simulate a network request or data fetching
     setTimeout(() => {
       setRefreshing(false);
     }, 2000);
@@ -50,7 +91,7 @@ const HomeScreen: React.FC = () => {
         {/* Welcome Text */}
         <View style={styles.welcomeContainer}>
           <FontAwesome name="user-o" size={24} color="#333" />
-          <Text style={styles.welcomeText}>Hello Student!</Text>
+          <Text style={styles.welcomeText}>Hello {currentUser?.username}</Text>
         </View>
 
         {/* Menu Items */}
@@ -59,7 +100,7 @@ const HomeScreen: React.FC = () => {
             <TouchableOpacity
               activeOpacity={0.8}
               style={[styles.menuItem, styles.statistic]}
-              onPress={() => router.push("/Productivity")} // Navigate to /Productivity
+              onPress={() => router.push("/Productivity")}
             >
               <Image
                 source={require("@Assets/statistic.png")}
@@ -73,7 +114,7 @@ const HomeScreen: React.FC = () => {
               style={[styles.menuItem, styles.timer]}
               onPress={() => {
                 router.push("/Timer");
-              }} // Navigate to /Productivity
+              }}
             >
               <Image
                 source={require("@Assets/timer.png")}
@@ -85,6 +126,9 @@ const HomeScreen: React.FC = () => {
             <TouchableOpacity
               activeOpacity={0.8}
               style={[styles.menuItem, styles.puzzle]}
+              onPress={() => {
+                router.push("/Puzzle");
+              }}
             >
               <Image
                 source={require("@Assets/puzzle.png")}
@@ -99,6 +143,9 @@ const HomeScreen: React.FC = () => {
             <TouchableOpacity
               activeOpacity={0.8}
               style={[styles.menuItem, styles.relax, styles.relaxLarge]}
+              onPress={() => {
+                router.replace("/Relax");
+              }}
             >
               <Image
                 source={require("@Assets/relax.png")}
@@ -235,10 +282,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#292A40",
   },
   relaxLarge: {
-    flex: 2, // Takes up 2/3 of the column
+    flex: 2,
   },
   profileSmall: {
-    flex: 1, // Takes up 1/3 of the column
+    flex: 1,
   },
 });
 

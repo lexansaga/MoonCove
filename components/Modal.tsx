@@ -1,5 +1,12 @@
 import React, { ReactNode } from "react";
-import { View, Text, StyleSheet, Modal, TouchableOpacity } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Modal,
+  TouchableOpacity,
+  Image,
+} from "react-native";
 import { Colors } from "@/constants/Colors";
 
 interface ModalComponentProps {
@@ -29,7 +36,31 @@ const ModalComponent: React.FC<ModalComponentProps> = ({
       >
         <View style={styles.modalContainer}>
           <Text style={styles.modalTitle}>{title}</Text>
-          <View style={styles.modalContent}>{content}</View>
+          <View style={styles.modalContent}>
+            {content}
+
+            <View
+              style={{
+                flex: 1,
+                height: "100%",
+                width: "100%",
+                position: "absolute",
+                bottom: 0,
+                left: 0,
+                right: 0,
+              }}
+              pointerEvents="none"
+            >
+              <Image
+                source={require("@Assets/shooting-star.png")}
+                style={styles.floatingRight}
+              />
+              <Image
+                source={require("@Assets/planet.png")}
+                style={styles.floatingLeft}
+              />
+            </View>
+          </View>
           {/* Render the content component */}
         </View>
       </TouchableOpacity>
@@ -55,11 +86,29 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     marginBottom: 10,
-    fontWeight: "bold",
     color: Colors.default.colorTextBrown,
+    fontFamily: "HazelnutMilktea-Bold",
   },
   modalContent: {
     marginTop: 10,
+  },
+  floatingLeft: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    transform: [{ translateX: -75 }, { translateY: 280 }],
+    width: "50%",
+    resizeMode: "contain",
+    pointerEvents: "none",
+  },
+  floatingRight: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    transform: [{ translateX: 50 }, { translateY: -280 }],
+    width: "50%",
+    resizeMode: "contain",
+    pointerEvents: "none",
   },
 });
 
