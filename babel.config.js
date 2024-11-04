@@ -10,6 +10,7 @@ module.exports = function (api) {
           alias: {
             "@Fonts": "./assets/fonts",
             "@Assets": "./assets/images",
+            "@Music": "./assets/music",
             "@Components/*": "./components/*",
             "@": "./",
           },

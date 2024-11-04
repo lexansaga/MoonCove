@@ -1,5 +1,4 @@
-import Button from "@Components/Button";
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   StyleSheet,
   TouchableOpacity,
@@ -9,8 +8,12 @@ import {
   Image,
   ToastAndroid,
   Animated,
+  Alert,
 } from "react-native";
 import tinycolor from "tinycolor2";
+import Button from "@Components/Button";
+import { Audio } from "expo-av";
+import useSettings from "@/store/Settings.store";
 
 export default function ColorSort() {
   const [colorGrid, setColorGrid] = useState(
@@ -23,9 +26,66 @@ export default function ColorSort() {
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
   const [level, setLevel] = useState(1);
   const [cheatMode, setCheatMode] = useState(false);
-  const GRID_COLUMNS = 2; // Number of columns for the grid
+  const soundRef = useRef<Audio.Sound | null>(null);
+  const [timeLeft, setTimeLeft] = useState(60); // Timer in seconds
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Generate 10 colors around a random base color with an Animated.Value for animations
+  // Access the volume state from the settings store
+  const volume = useSettings((state) => state.volume);
+
+  useEffect(() => {
+    // Load and play sound on component mount
+    const loadSound = async () => {
+      try {
+        const { sound } = await Audio.Sound.createAsync(
+          {
+            uri: "https://commondatastorage.googleapis.com/codeskulptor-assets/Epoq-Lepidoptera.ogg",
+          },
+          { shouldPlay: volume, isLooping: true }
+        );
+        soundRef.current = sound;
+      } catch (error) {
+        console.error("Error loading sound from URI:", error);
+      }
+    };
+    loadSound();
+
+    // Start the timer countdown
+    timerRef.current = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timerRef.current!);
+          Alert.alert("Time's up!", "Moving to the next level.");
+          setIsSorted(true); // Show the Next Level button when time runs out
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      // Unload sound when component unmounts and clear the timer
+      if (soundRef.current) {
+        soundRef.current.unloadAsync();
+      }
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [volume]);
+
+  // Stop sound if volume is off
+  useEffect(() => {
+    if (soundRef.current) {
+      if (volume) {
+        soundRef.current.playAsync();
+      } else {
+        soundRef.current.stopAsync();
+      }
+    }
+  }, [volume]);
+
+  // Generate colors for the grid
   function generateColors() {
     const baseColor = tinycolor.random().toHexString();
     const colors = [];
@@ -45,6 +105,7 @@ export default function ColorSort() {
     return colors.sort(() => Math.random() - 0.5);
   }
 
+  // Handle color press for swapping
   const handleColorPress = (index: number) => {
     if (selectedIndices.length === 0) {
       setSelectedIndices([index]);
@@ -86,8 +147,11 @@ export default function ColorSort() {
     }
   };
 
+  // Check if the grid is sorted
   const checkIfSorted = (grid: any) => {
     let sorted = true;
+    const GRID_COLUMNS = 2; // Define grid columns
+
     for (let col = 0; col < GRID_COLUMNS; col++) {
       for (let row = 1; row < grid.length / GRID_COLUMNS; row++) {
         const currentIndex = row * GRID_COLUMNS + col;
@@ -112,6 +176,7 @@ export default function ColorSort() {
 
     setIsSorted(sorted);
     if (sorted) {
+      clearInterval(timerRef.current!);
       ToastAndroid.showWithGravity(
         "Colors are sorted correctly!",
         ToastAndroid.SHORT,
@@ -127,14 +192,15 @@ export default function ColorSort() {
         onLongPress={() => {
           setCheatMode(!cheatMode);
           ToastAndroid.showWithGravity(
-            `Cheat mode ${cheatMode === true ? "Activated" : "Deactivated"}!`,
+            `Cheat mode ${cheatMode ? "Deactivated" : "Activated"}!`,
             ToastAndroid.SHORT,
             ToastAndroid.BOTTOM
           );
         }}
       >
-        Level {level.toString()}
+        Level {level}
       </Text>
+      <Text style={styles.timer}>Time Left: {timeLeft}s</Text>
       <View style={styles.container}>
         <View style={styles.colorGrid}>
           {colorGrid.map((item, index) => {
@@ -156,7 +222,7 @@ export default function ColorSort() {
                     alignItems: "center",
                   }}
                 >
-                  {cheatMode === true && (
+                  {cheatMode && (
                     <Text
                       style={[
                         styles.colorIndexText,
@@ -178,9 +244,6 @@ export default function ColorSort() {
           })}
         </View>
         <View style={styles.btnWrapper}>
-          {/* {!isSorted && (
-            <Button title="Check" onPress={() => checkIfSorted(colorGrid)} />
-          )} */}
           {isSorted && (
             <Button
               title="Next Level"
@@ -193,24 +256,25 @@ export default function ColorSort() {
                 );
                 setIsSorted(false);
                 setLevel(level + 1);
+                setTimeLeft(60); // Reset timer for the next level
+                timerRef.current = setInterval(() => {
+                  setTimeLeft((prev) => {
+                    if (prev <= 1) {
+                      clearInterval(timerRef.current!);
+                      Alert.alert("Time's up!", "Moving to the next level.");
+                      setIsSorted(true);
+                      return 0;
+                    }
+                    return prev - 1;
+                  });
+                }, 1000);
               }}
             />
           )}
         </View>
       </View>
 
-      <View
-        style={{
-          flex: 1,
-          height: "100%",
-          width: "100%",
-          position: "absolute",
-          bottom: 0,
-          left: 0,
-          right: 0,
-        }}
-        pointerEvents="none"
-      >
+      <View style={styles.overlayContainer} pointerEvents="none">
         <Image
           source={require("@Assets/shooting-star.png")}
           style={styles.floatingRight}
@@ -242,6 +306,12 @@ const styles = StyleSheet.create({
     fontSize: 32,
     color: "#333",
     marginBottom: 20,
+    fontFamily: "HazelnutMilktea-Bold",
+  },
+  timer: {
+    fontSize: 18,
+    color: "#000",
+    marginBottom: 10,
     fontFamily: "HazelnutMilktea-Bold",
   },
   colorGrid: {
@@ -291,5 +361,14 @@ const styles = StyleSheet.create({
     width: "80%",
     resizeMode: "contain",
     pointerEvents: "none",
+  },
+  overlayContainer: {
+    flex: 1,
+    height: "100%",
+    width: "100%",
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
 });

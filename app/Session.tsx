@@ -27,20 +27,23 @@ interface DataPoint {
   color: string;
 }
 
+interface Task {
+  id: string;
+  title: string;
+  description: string;
+  status: string;
+  date_created?: string;
+  date_finish?: string;
+}
+
 interface SessionData {
   id: string;
   title: string;
-  tasks: {
-    id: string;
-    title: string;
-    description: string;
-    status: string;
-  }[];
+  tasks: Task[];
 }
 
 const Session: React.FC = () => {
   const { selectedDate } = useLocalSearchParams();
-  // const selectedDate = "2024-11-01";
   const [activeSlice, setActiveSlice] = useState<DataPoint | null>(null);
   const [touchX, setTouchX] = useState<number>(0);
   const [touchY, setTouchY] = useState<number>(0);
@@ -51,9 +54,6 @@ const Session: React.FC = () => {
   );
   const slideAnim = useRef(new Animated.Value(0)).current;
   const user = useUser();
-  // const productivity = useProductivity((state) => ({
-  //   selectedDate: state.selectedDate,
-  // }));
 
   useEffect(() => {
     // Fetch user sessions from Firebase
@@ -71,7 +71,6 @@ const Session: React.FC = () => {
             ...data[key],
           }));
           setSessions(sessionsArray);
-          console.log(sessionsArray);
         }
       } catch (error) {
         console.error("Error fetching sessions:", error);
@@ -81,13 +80,45 @@ const Session: React.FC = () => {
     fetchSessions();
   }, []);
 
-  const data: DataPoint[] = [
-    { x: "Worst", y: 30, color: "#FF6B6B" },
-    { x: "Bad", y: 20, color: "#FFA07A" },
-    { x: "Good", y: 25, color: "#B2D8B2" },
-    { x: "Excellent", y: 25, color: "#4CAF50" },
-  ];
+  const categorizeTasks = (tasks: Task[]) => {
+    let worst = 0;
+    let bad = 0;
+    let good = 0;
+    let excellent = 0;
 
+    tasks.forEach((task) => {
+      if (!task.date_created || !task.date_finish) {
+        bad += 1;
+      } else {
+        const startDate = new Date(task.date_created).getTime();
+        const endDate = new Date(task.date_finish).getTime();
+        const durationHours = (endDate - startDate) / (1000 * 60 * 60);
+        console.log(task);
+        if (durationHours <= 1) {
+          excellent += 1;
+        } else if (durationHours <= 3) {
+          good += 1;
+        } else if (durationHours <= 5) {
+          bad += 1;
+        } else {
+          worst += 1;
+        }
+      }
+    });
+
+    return [
+      {
+        x: "Worst",
+        y: bad === 0 && good === 0 && excellent === 0 ? 1 : worst,
+        color: "#FF6B6B",
+      },
+      { x: "Bad", y: bad, color: "#FFA07A" },
+      { x: "Good", y: good, color: "#B2D8B2" },
+      { x: "Excellent", y: excellent, color: "#4CAF50" },
+    ];
+  };
+
+  const data = categorizeTasks(sessions.flatMap((session) => session.tasks));
   const total = data.reduce((sum, slice) => sum + slice.y, 0);
 
   // PanResponder to track touch movement
@@ -138,42 +169,44 @@ const Session: React.FC = () => {
       </TouchableOpacity>
 
       <View style={styles.productivityContainer} {...panResponder.panHandlers}>
-        <View style={styles.pieChartContainer}>
-          <VictoryPie
-            data={data}
-            colorScale={data.map((slice) => slice.color)}
-            innerRadius={0}
-            labelRadius={({ innerRadius }) => (innerRadius ?? 0) + 20}
-            style={{
-              labels: { fill: "white", fontSize: 12, fontWeight: "bold" },
-              data: {
-                fillOpacity: ({ datum }) =>
-                  activeSlice && activeSlice.x === datum.x ? 0.7 : 1,
-              },
-            }}
-            labels={() => ""} // Hide default labels
-            events={[
-              {
-                target: "data",
-                eventHandlers: {
-                  onPressIn: () => [
-                    {
-                      target: "data",
-                      mutation: (props) => {
-                        setActiveSlice(props.datum as DataPoint);
-                        return {};
-                      },
-                    },
-                  ],
+        {data && (
+          <View style={styles.pieChartContainer}>
+            <VictoryPie
+              data={data}
+              colorScale={data.map((slice) => slice.color)}
+              innerRadius={0}
+              labelRadius={({ innerRadius }) => (innerRadius ?? 0) + 20}
+              style={{
+                labels: { fill: "white", fontSize: 12, fontWeight: "bold" },
+                data: {
+                  fillOpacity: ({ datum }) =>
+                    activeSlice && activeSlice.x === datum.x ? 0.7 : 1,
                 },
-              },
-            ]}
-          />
-          <Image
-            source={require("@Assets/person.png")}
-            style={styles.personImage}
-          />
-        </View>
+              }}
+              labels={() => ""} // Hide default labels
+              events={[
+                {
+                  target: "data",
+                  eventHandlers: {
+                    onPressIn: () => [
+                      {
+                        target: "data",
+                        mutation: (props) => {
+                          setActiveSlice(props.datum as DataPoint);
+                          return {};
+                        },
+                      },
+                    ],
+                  },
+                },
+              ]}
+            />
+            <Image
+              source={require("@Assets/person.png")}
+              style={styles.personImage}
+            />
+          </View>
+        )}
         <Text style={styles.productivityText}>Your Productivity</Text>
 
         <FloatingGlitter top={20} left={20} />
@@ -195,7 +228,8 @@ const Session: React.FC = () => {
       >
         <TouchableOpacity
           style={[styles.sessionButton, styles.addSessionButton]}
-          onPress={() => toggleTasks()}
+          onPress={() => toggleTasks({} as SessionData)}
+          activeOpacity={0.8}
         >
           <AntDesign name="pluscircleo" size={60} color={"#fff"} />
           <Text style={[styles.sessionButtonText, styles.addSessionButtonText]}>

@@ -1,11 +1,10 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  GestureResponderEvent,
   Image,
 } from "react-native";
 import { Colors } from "@/constants/Colors";
@@ -14,26 +13,66 @@ import { globalStyles } from "@/constants/GlobalStyles";
 import { Link } from "expo-router";
 import { FontAwesome5 } from "@expo/vector-icons";
 import FloatingGlitter from "@Components/FloatingGlitters";
+import { Audio } from "expo-av";
 
 const Timer: React.FC = () => {
   const [time, setTime] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
   const [isFocusMode, setIsFocusMode] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const soundRef = useRef<Audio.Sound | null>(null);
 
-  // Start the timer
-  const startTimer = () => {
+  // Load and configure the sound on component mount
+  useEffect(() => {
+    const loadSound = async () => {
+      try {
+        const { sound } = await Audio.Sound.createAsync(
+          require("@Music/bgm.mp3"),
+          { shouldPlay: true, isLooping: true }
+        );
+        soundRef.current = sound;
+      } catch (error) {
+        console.error("Error loading sound from URI:", error);
+      }
+    };
+    loadSound();
+
+    return () => {
+      // Unload sound when component unmounts
+      if (soundRef.current) {
+        soundRef.current.unloadAsync();
+      }
+    };
+  }, []);
+
+  // Start the timer and play music
+  const startTimer = async () => {
     setIsRunning(true);
     timerRef.current = setInterval(() => {
       setTime((prevTime) => prevTime + 1);
     }, 1000);
+
+    // Play sound when starting the timer
+    try {
+      if (soundRef.current) {
+        await soundRef.current.replayAsync();
+      }
+    } catch (error) {
+      console.error("Error playing sound:", error);
+    }
   };
 
-  // Stop and reset the timer
-  const stopTimer = () => {
+  // Stop and reset the timer and stop music
+  const stopTimer = async () => {
     if (timerRef.current) clearInterval(timerRef.current);
     setIsRunning(false);
     setTime(0);
+
+    // Stop and reset sound when timer stops
+    if (soundRef.current) {
+      await soundRef.current.stopAsync();
+      await soundRef.current.setPositionAsync(0);
+    }
   };
 
   // Format time in HH:MM:SS
@@ -156,10 +195,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     zIndex: 2,
   },
-  backText: {
-    fontSize: 24,
-    color: Colors.default.colorTextBrown,
-  },
   title: {
     fontSize: 32,
     color: "#fff",
@@ -183,10 +218,9 @@ const styles = StyleSheet.create({
     resizeMode: "contain",
     position: "absolute",
     top: "50%",
-    transform: [{ translateY: -30 }], // Centered by half the height
+    transform: [{ translateY: -30 }],
     right: -35,
   },
-
   timerCircle: {
     width: 200,
     height: 200,

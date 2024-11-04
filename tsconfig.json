@@ -6,6 +6,7 @@
     "paths": {
       "@Fonts/*": ["./assets/fonts/*"],
       "@Assets/*": ["./assets/images/*"],
+      "@Music/*": ["./assets/music/*"],
       "@Components/*": ["./components/*"],
       "@/*": ["./*"]
     }

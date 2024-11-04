@@ -33,6 +33,7 @@ const Profile: React.FC = () => {
     email: "",
     gender: "",
     password: "",
+    bio: "",
   });
 
   const user = useUser();
@@ -120,6 +121,7 @@ const Profile: React.FC = () => {
       email: user.email,
       gender: user.gender,
       password: user.password,
+      bio: user.bio,
     });
   }, [user]);
 
@@ -223,11 +225,19 @@ const Profile: React.FC = () => {
                 { id: "Female", label: "Female" },
                 { id: "Other", label: "Other" },
               ]}
+              selectedValue={tempUser?.gender}
               onSelect={handleGenderSelect}
               disabled={!isEditable}
             />
 
-            <Input placeholder="Bio" multiline editable={isEditable} />
+            <Input
+              placeholder="Bio"
+              multiline
+              editable={isEditable}
+              onChangeText={(text) =>
+                setTempUser((prev) => ({ ...prev, bio: text }))
+              }
+            />
 
             {isEditable && (
               <Button

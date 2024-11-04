@@ -1,7 +1,7 @@
 import Button from "@Components/Button";
 import ModalComponent from "@Components/Modal";
 import { Link, useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Image,
   StyleSheet,
@@ -12,10 +12,10 @@ import {
   Text,
 } from "react-native";
 import { FontAwesome, FontAwesome6, MaterialIcons } from "@expo/vector-icons";
-import useTimer from "@/store/TimerState.store";
 import { Picker } from "@react-native-picker/picker";
 import { Colors } from "@/constants/Colors";
 import { globalStyles } from "@/constants/GlobalStyles";
+import useSettings from "@/store/Settings.store";
 
 export default function Relax() {
   const router = useRouter();
@@ -25,8 +25,17 @@ export default function Relax() {
   const [selectedHours, setSelectedHours] = useState<number>(0);
   const [selectedMinutes, setSelectedMinutes] = useState<number>(0);
   const [selectedSeconds, setSelectedSeconds] = useState<number>(0);
-  const [isMuted, setIsMuted] = useState<boolean>(true);
-  const setTimer = useTimer((state: any) => state.setTimer);
+
+  // Accessing states and functions from useSettings store
+  const timer = useSettings((state) => state.timer);
+  const setTimer = useSettings((state) => state.setProductivityTimer);
+  const volume = useSettings((state) => state.volume);
+  const toggleVolume = useSettings((state) => state.toggleVolume);
+
+  useEffect(() => {
+    console.log(volume);
+    console.log(timer);
+  }, [volume]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -59,10 +68,6 @@ export default function Relax() {
       .padStart(2, "0")} -- ${selectedSeconds.toString().padStart(2, "0")}`;
     setTimer(timeString);
     handleCloseModal();
-  };
-
-  const handleSoundToggle = () => {
-    setIsMuted(!isMuted);
   };
 
   return (
@@ -132,24 +137,16 @@ export default function Relax() {
               </Text>
             </TouchableOpacity>
             <View style={styles.iconContainer}>
-              <TouchableOpacity onPress={handleSoundToggle}>
-                {isMuted ? (
-                  <MaterialIcons name="volume-off" size={40} color="black" />
-                ) : (
+              <TouchableOpacity onPress={toggleVolume}>
+                {volume ? (
                   <MaterialIcons name="volume-up" size={40} color="black" />
+                ) : (
+                  <MaterialIcons name="volume-off" size={40} color="black" />
                 )}
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleCheckPress}
-                style={{
-                  width: 50,
-                  height: 50,
-                  borderColor: Colors.default.colorTextBrown,
-                  borderRadius: 20,
-                  borderWidth: 2,
-                  justifyContent: "center",
-                  alignItems: "center",
-                }}
+                style={styles.checkButton}
               >
                 <FontAwesome6
                   name="check"
@@ -307,6 +304,15 @@ const styles = StyleSheet.create({
     justifyContent: "space-around",
     width: "100%",
     marginTop: 10,
+  },
+  checkButton: {
+    width: 50,
+    height: 50,
+    borderColor: Colors.default.colorTextBrown,
+    borderRadius: 20,
+    borderWidth: 2,
+    justifyContent: "center",
+    alignItems: "center",
   },
   timerPickersContainer: {
     flexDirection: "column",

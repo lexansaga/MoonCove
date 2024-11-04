@@ -10,6 +10,7 @@ interface UserState {
   gender: string;
   password: string;
   profile: string;
+  bio: string;
   setUser: (user: Partial<UserState>) => void;
   clearUser: () => void;
 }
@@ -23,6 +24,7 @@ const useUser = create<UserState>((set) => ({
   email: "",
   password: "",
   profile: "",
+  bio: "",
   setUser: (user) => set((state) => ({ ...state, ...user })),
   clearUser: () =>
     set({
@@ -33,6 +35,7 @@ const useUser = create<UserState>((set) => ({
       email: "",
       password: "",
       profile: "",
+      bio: "",
     }),
 }));
 

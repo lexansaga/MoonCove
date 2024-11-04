@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ interface PopupSelectProps {
   options: Array<{ id: string; label: string }>;
   onSelect: (value: string) => void;
   disabled?: boolean;
+  selectedValue?: string | null; // New prop for initial selected value
 }
 
 export default function Dropdown({
@@ -23,9 +24,19 @@ export default function Dropdown({
   options,
   onSelect,
   disabled,
+  selectedValue: initialSelectedValue = null,
 }: PopupSelectProps) {
   const [modalVisible, setModalVisible] = useState(false);
-  const [selectedValue, setSelectedValue] = useState<string | null>(null);
+  const [selectedValue, setSelectedValue] = useState<string | null>(
+    initialSelectedValue
+  );
+
+  useEffect(() => {
+    // Update selected value when the prop changes
+    if (initialSelectedValue !== selectedValue) {
+      setSelectedValue(initialSelectedValue);
+    }
+  }, [initialSelectedValue]);
 
   const handleSelect = (value: string) => {
     setSelectedValue(value);

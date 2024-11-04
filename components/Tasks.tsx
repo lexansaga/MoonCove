@@ -21,6 +21,8 @@ interface Task {
   title: string;
   description?: string;
   status: "completed" | "in-progress";
+  date_created: string;
+  date_finish?: string;
 }
 
 interface SessionData {
@@ -51,8 +53,6 @@ const Tasks: React.FC<TasksProps> = ({
   const currentUserID = authentication.currentUser?.uid;
 
   useEffect(() => {
-    console.log(selectedDate);
-    console.log(sessionData?.id);
     // Load tasks from sessionData if available
     if (sessionData) {
       setTasks(sessionData.tasks || []); // Ensure tasks is an array
@@ -68,14 +68,19 @@ const Tasks: React.FC<TasksProps> = ({
     tasks.length > 0 ? (completedTasksCount / tasks.length) * 100 : 0;
 
   const toggleTaskStatus = async (id: string) => {
-    const updatedTasks = tasks.map((task) =>
-      task.id === id
-        ? {
-            ...task,
-            status: task.status === "completed" ? "in-progress" : "completed",
-          }
-        : task
-    );
+    const updatedTasks = tasks.map((task) => {
+      if (task.id === id) {
+        const newStatus =
+          task.status === "completed" ? "in-progress" : "completed";
+        return {
+          ...task,
+          status: newStatus,
+          date_finish:
+            newStatus === "completed" ? new Date().toISOString() : "",
+        };
+      }
+      return task;
+    });
     setTasks(updatedTasks);
 
     // Save progress to Firebase
@@ -98,6 +103,7 @@ const Tasks: React.FC<TasksProps> = ({
         id: `task-${Date.now()}`,
         title: newTaskTitle,
         status: "in-progress",
+        date_created: new Date().toISOString(),
       };
       const updatedTasks = [...tasks, newTask];
       setTasks(updatedTasks);
@@ -201,7 +207,7 @@ const Tasks: React.FC<TasksProps> = ({
       <View style={styles.header}>
         <TextInput
           style={styles.title}
-          value={tempTitle}
+          value={tempTitle || "Add Task Name"}
           onChangeText={setTempTitle}
           editable={isEditing}
         />
@@ -229,49 +235,76 @@ const Tasks: React.FC<TasksProps> = ({
       </View>
 
       <ScrollView>
-        {tasks.map((task) => (
-          <TouchableOpacity
-            key={task.id}
-            style={styles.taskContainer}
-            onPress={() => toggleTaskStatus(task.id)}
-            onLongPress={() => openEditModal(task)}
-          >
-            <FontAwesome
-              name={task.status === "completed" ? "check-square-o" : "square-o"}
-              size={24}
-              color={
-                task.status === "completed"
-                  ? Colors.default.colorTextBrown
-                  : "#000"
-              }
-              style={styles.checkboxIcon}
-            />
-            <Text
-              style={[
-                styles.taskText,
-                task.status === "completed" && styles.taskTextCompleted,
-              ]}
+        {tasks.length === 0 ? (
+          <>
+            {!isEditing && (
+              <>
+                <Text
+                  style={[
+                    styles.noTasksText,
+                    {
+                      fontSize: 20,
+                    },
+                  ]}
+                >
+                  No tasks available.
+                </Text>
+                <Text style={styles.noTasksText}>
+                  Add a new task to get started!
+                </Text>
+              </>
+            )}
+          </>
+        ) : (
+          tasks.map((task) => (
+            <TouchableOpacity
+              key={task.id}
+              style={styles.taskContainer}
+              onPress={() => toggleTaskStatus(task.id)}
+              onLongPress={() => openEditModal(task)}
             >
-              {task.title}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <FontAwesome
+                name={
+                  task.status === "completed" ? "check-square-o" : "square-o"
+                }
+                size={24}
+                color={
+                  task.status === "completed"
+                    ? Colors.default.colorTextBrown
+                    : "#000"
+                }
+                style={styles.checkboxIcon}
+              />
+              <Text
+                style={[
+                  styles.taskText,
+                  task.status === "completed" && styles.taskTextCompleted,
+                ]}
+              >
+                {task.title}
+              </Text>
+            </TouchableOpacity>
+          ))
+        )}
 
-        <View style={styles.addTaskContainer}>
-          <FontAwesome
-            name="plus"
-            size={20}
-            color={Colors.default.colorTextBrown}
-          />
-          <TextInput
-            style={styles.addTaskInput}
-            placeholder="Add Task"
-            placeholderTextColor="#aaa"
-            value={newTaskTitle}
-            onChangeText={setNewTaskTitle}
-            onSubmitEditing={addTask}
-          />
-        </View>
+        {isEditing && (
+          <View style={styles.addTaskContainer}>
+            <FontAwesome
+              name="plus"
+              size={20}
+              color={Colors.default.colorTextBrown}
+              onPress={addTask}
+            />
+            <TextInput
+              style={styles.addTaskInput}
+              placeholder="Add Task"
+              placeholderTextColor="#aaa"
+              value={newTaskTitle}
+              onChangeText={setNewTaskTitle}
+              onSubmitEditing={addTask}
+            />
+          </View>
+        )}
 
         <View style={styles.taskFooter}>
           <View style={styles.buttonWrapper}>
@@ -412,10 +445,16 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     fontFamily: "HazelnutMilktea-Bold",
   },
+  noTasksText: {
+    color: Colors.default.colorTextBrown,
+    fontWeight: "500",
+    fontFamily: "HazelnutMilktea-Bold",
+  },
   taskContainer: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     marginBottom: 10,
+    width: "100%",
   },
   checkboxIcon: {
     marginRight: 10,
@@ -428,6 +467,12 @@ const styles = StyleSheet.create({
   taskTextCompleted: {
     textDecorationLine: "line-through",
     color: "#aaa",
+  },
+  dateText: {
+    fontSize: 14,
+    color: "#666",
+    marginTop: 5,
+    fontFamily: "HazelnutMilktea-Regular",
   },
   addTaskContainer: {
     flexDirection: "row",
