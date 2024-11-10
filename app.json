@@ -14,7 +14,11 @@
     },
     "assetBundlePatterns": [
       "assets/fonts/*"
-    ]
+    ],
+    "android": {
+      "package": "com.akoto101.MoonCove"
+    },
+    "jsEngine": "hermes"
   },
   "ios": {
     "supportsTablet": true

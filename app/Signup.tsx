@@ -172,7 +172,7 @@ const Signup: React.FC = () => {
             value={confirmPassword}
             onChangeText={setConfirmPassword}
           />
-          <Button title="Signup" onPress={handleSignup} variant={"Primary"} />
+
           <Image
             source={require("@Assets/glitters-left.png")}
             style={styles.floatingGlittersLeft}
@@ -186,11 +186,36 @@ const Signup: React.FC = () => {
 
         {/* Sign Up Link */}
         <View style={styles.signUpContainer}>
-          <TouchableOpacity>
-            <Link href="/Login" style={styles.signUpLink}>
-              Sign In
-            </Link>
+          <TouchableOpacity style={styles.signUpLink} onPress={handleSignup}>
+            <Text style={styles.signUpText}>Sign Up</Text>
           </TouchableOpacity>
+        </View>
+
+        <View
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            gap: 4,
+            marginTop: -20,
+          }}
+        >
+          <Text
+            style={{
+              color: Colors.default.colorText,
+              fontFamily: "HazelnutMilktea-Bold",
+            }}
+          >
+            Already has an account?
+          </Text>
+          <Link
+            href="/Login"
+            style={{
+              color: Colors.default.colorRed,
+              fontFamily: "HazelnutMilktea-Bold",
+            }}
+          >
+            Sign Up
+          </Link>
         </View>
       </View>
     </ScrollView>

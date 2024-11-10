@@ -8,6 +8,7 @@ import {
   Animated,
   PanResponder,
   Image,
+  RefreshControl,
 } from "react-native";
 import { AntDesign, FontAwesome5 } from "@expo/vector-icons";
 import { Colors } from "@/constants/Colors";
@@ -16,7 +17,7 @@ import { VictoryPie } from "victory-native";
 import { Link, useLocalSearchParams } from "expo-router";
 import { globalStyles } from "@/constants/GlobalStyles";
 import Tasks from "@Components/Tasks";
-import { get, ref } from "firebase/database";
+import { get, ref, push, update } from "firebase/database";
 import { database } from "@/firebase/Firebase";
 import useUser from "@/store/User.store";
 import useProductivity from "@/store/Productivity.store";
@@ -39,7 +40,7 @@ interface Task {
 interface SessionData {
   id: string;
   title: string;
-  tasks: Task[];
+  tasks: { [key: string]: Task }; // Updated to reflect the new structure
 }
 
 const Session: React.FC = () => {
@@ -52,6 +53,7 @@ const Session: React.FC = () => {
   const [selectedSession, setSelectedSession] = useState<SessionData | null>(
     null
   );
+  const [refreshing, setRefreshing] = useState(false);
   const slideAnim = useRef(new Animated.Value(0)).current;
   const user = useUser();
 
@@ -71,6 +73,7 @@ const Session: React.FC = () => {
             ...data[key],
           }));
           setSessions(sessionsArray);
+          console.log(sessions);
         }
       } catch (error) {
         console.error("Error fetching sessions:", error);
@@ -80,13 +83,13 @@ const Session: React.FC = () => {
     fetchSessions();
   }, []);
 
-  const categorizeTasks = (tasks: Task[]) => {
+  const categorizeTasks = (tasks: { [key: string]: Task }) => {
     let worst = 0;
     let bad = 0;
     let good = 0;
     let excellent = 0;
 
-    tasks.forEach((task) => {
+    Object.values(tasks).forEach((task) => {
       if (!task.date_created || !task.date_finish) {
         bad += 1;
       } else {
@@ -118,7 +121,9 @@ const Session: React.FC = () => {
     ];
   };
 
-  const data = categorizeTasks(sessions.flatMap((session) => session.tasks));
+  const data = categorizeTasks(
+    sessions.reduce((acc, session) => ({ ...acc, ...session.tasks }), {})
+  );
   const total = data.reduce((sum, slice) => sum + slice.y, 0);
 
   // PanResponder to track touch movement
@@ -157,8 +162,44 @@ const Session: React.FC = () => {
     }
   };
 
+  const handleSessionSave = async (newSession: SessionData) => {
+    // Add the new session to the sessions list
+    setSessions((prevSessions) => [...prevSessions, newSession]);
+    // Close the tasks component
+    toggleTasks();
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    // Fetch the latest sessions from Firebase
+    try {
+      const userRef = ref(
+        database,
+        `Sessions/${user.id}/${selectedDate}/sessions`
+      );
+      const snapshot = await get(userRef);
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        const sessionsArray = Object.keys(data).map((key) => ({
+          id: key,
+          ...data[key],
+        }));
+        setSessions(sessionsArray);
+        console.log("Sessions refreshed:", sessionsArray);
+      }
+    } catch (error) {
+      console.error("Error refreshing sessions:", error);
+    }
+    setRefreshing(false);
+  };
+
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView
+      contentContainerStyle={styles.container}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+      }
+    >
       <TouchableOpacity style={styles.backButton} activeOpacity={0.7}>
         <FontAwesome5
           name="chevron-left"
@@ -175,7 +216,7 @@ const Session: React.FC = () => {
               data={data}
               colorScale={data.map((slice) => slice.color)}
               innerRadius={0}
-              labelRadius={({ innerRadius }) => (innerRadius ?? 0) + 20}
+              labelRadius={({ innerRadius }: any) => (innerRadius ?? 0) + 20}
               style={{
                 labels: { fill: "white", fontSize: 12, fontWeight: "bold" },
                 data: {
@@ -264,6 +305,7 @@ const Session: React.FC = () => {
             onClose={toggleTasks}
             sessionData={selectedSession}
             selectedDate={selectedDate}
+            onSessionSave={handleSessionSave}
           />
         </Animated.View>
       )}

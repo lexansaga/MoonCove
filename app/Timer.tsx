@@ -14,11 +14,17 @@ import { Link } from "expo-router";
 import { FontAwesome5 } from "@expo/vector-icons";
 import FloatingGlitter from "@Components/FloatingGlitters";
 import { Audio } from "expo-av";
+import ModalComponent from "@Components/Modal";
+import { Picker } from "@react-native-picker/picker";
 
 const Timer: React.FC = () => {
   const [time, setTime] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
   const [isFocusMode, setIsFocusMode] = useState(false);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [selectedHours, setSelectedHours] = useState<number>(0);
+  const [selectedMinutes, setSelectedMinutes] = useState<number>(0);
+  const [selectedSeconds, setSelectedSeconds] = useState<number>(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
 
@@ -49,7 +55,15 @@ const Timer: React.FC = () => {
   const startTimer = async () => {
     setIsRunning(true);
     timerRef.current = setInterval(() => {
-      setTime((prevTime) => prevTime + 1);
+      if (
+        selectedHours === 0 &&
+        selectedMinutes === 0 &&
+        selectedSeconds === 0
+      ) {
+        setTime((prevTime) => prevTime + 1);
+      } else {
+        setTime((prevTime) => prevTime - 1);
+      }
     }, 1000);
 
     // Play sound when starting the timer
@@ -62,11 +76,18 @@ const Timer: React.FC = () => {
     }
   };
 
+  // Pause the timer
+  const pauseTimer = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    setIsRunning(false);
+  };
+
   // Stop and reset the timer and stop music
   const stopTimer = async () => {
     if (timerRef.current) clearInterval(timerRef.current);
     setIsRunning(false);
     setTime(0);
+    handleClearPress();
 
     // Stop and reset sound when timer stops
     if (soundRef.current) {
@@ -83,12 +104,33 @@ const Timer: React.FC = () => {
       "0"
     );
     const seconds = String(timeInSeconds % 60).padStart(2, "0");
-    return `${hours} : ${minutes} : ${seconds}`;
+    return `${hours}h : ${minutes}m : ${seconds}s`;
   };
 
   // Toggle focus mode
   const toggleFocusMode = () => {
     setIsFocusMode(!isFocusMode);
+  };
+
+  const handleMenuPress = () => {
+    setIsModalVisible(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalVisible(false);
+  };
+
+  const handleCheckPress = () => {
+    const totalSeconds =
+      selectedHours * 3600 + selectedMinutes * 60 + selectedSeconds;
+    setTime(totalSeconds);
+    handleCloseModal();
+  };
+
+  const handleClearPress = () => {
+    setSelectedHours(0);
+    setSelectedMinutes(0);
+    setSelectedSeconds(0);
   };
 
   return (
@@ -101,6 +143,17 @@ const Timer: React.FC = () => {
             color={Colors.default.colorSecondary}
           />
           <Link href={"/HomeScreen"} style={globalStyles.overlink}></Link>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.clockButton}
+          activeOpacity={0.7}
+          onPress={handleMenuPress}
+        >
+          <FontAwesome5
+            name="clock"
+            size={18}
+            color={Colors.default.colorSecondary}
+          />
         </TouchableOpacity>
         <Text style={styles.title}>TIMER</Text>
 
@@ -122,9 +175,9 @@ const Timer: React.FC = () => {
           {!isFocusMode ? (
             <>
               <Button
-                title="START"
+                title={isRunning ? "PAUSE" : "START"}
                 variant="Primary"
-                onPress={startTimer}
+                onPress={isRunning ? pauseTimer : startTimer}
                 customStyles={{
                   backgroundColor: Colors.default.colorGreen,
                 }}
@@ -168,6 +221,89 @@ const Timer: React.FC = () => {
         <FloatingGlitter />
         <FloatingGlitter />
         <FloatingGlitter />
+
+        {/* Modal for Timer Selection */}
+        <ModalComponent
+          visible={isModalVisible}
+          title="Set Time"
+          content={
+            <View style={styles.timerContent}>
+              <View style={styles.timerContainer}>
+                <Text style={styles.timerTitle}>Hours</Text>
+                <View style={styles.pickerContainer}>
+                  <Picker
+                    selectedValue={selectedHours}
+                    style={styles.picker}
+                    onValueChange={(itemValue) => setSelectedHours(itemValue)}
+                  >
+                    {[...Array(24).keys()].map((value) => (
+                      <Picker.Item
+                        key={value}
+                        label={value.toString().padStart(2, "0")}
+                        value={value}
+                      />
+                    ))}
+                  </Picker>
+                </View>
+              </View>
+
+              <View style={styles.timerContainer}>
+                <Text style={styles.timerTitle}>Minutes</Text>
+                <View style={styles.pickerContainer}>
+                  <Picker
+                    selectedValue={selectedMinutes}
+                    style={styles.picker}
+                    onValueChange={(itemValue) => setSelectedMinutes(itemValue)}
+                  >
+                    {[...Array(60).keys()].map((value) => (
+                      <Picker.Item
+                        key={value}
+                        label={value.toString().padStart(2, "0")}
+                        value={value}
+                      />
+                    ))}
+                  </Picker>
+                </View>
+              </View>
+
+              <View style={styles.timerContainer}>
+                <Text style={styles.timerTitle}>Seconds</Text>
+                <View style={styles.pickerContainer}>
+                  <Picker
+                    selectedValue={selectedSeconds}
+                    style={styles.picker}
+                    onValueChange={(itemValue) => setSelectedSeconds(itemValue)}
+                  >
+                    {[...Array(60).keys()].map((value) => (
+                      <Picker.Item
+                        key={value}
+                        label={value.toString().padStart(2, "0")}
+                        value={value}
+                      />
+                    ))}
+                  </Picker>
+                </View>
+              </View>
+
+              <View style={styles.iconContainer}>
+                <TouchableOpacity onPress={handleClearPress}>
+                  <FontAwesome5 name="trash" size={25} color="black" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleCheckPress}
+                  style={styles.checkButton}
+                >
+                  <FontAwesome5
+                    name="check"
+                    size={25}
+                    color={Colors.default.colorTextBrown}
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+          }
+          onClose={handleCloseModal}
+        />
       </View>
     </TouchableWithoutFeedback>
   );
@@ -195,6 +331,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     zIndex: 2,
   },
+  clockButton: {
+    position: "absolute",
+    top: 45,
+    right: 15,
+    borderRadius: 3,
+    borderWidth: 1,
+    borderColor: Colors.default.colorSecondary,
+    aspectRatio: 1,
+    height: 40,
+    width: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 2,
+  },
   title: {
     fontSize: 32,
     color: "#fff",
@@ -205,6 +355,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 12,
+    width: "100%",
   },
   floatingGlobe: {
     width: 35,
@@ -234,7 +385,7 @@ const styles = StyleSheet.create({
     shadowRadius: 50,
   },
   timeText: {
-    fontSize: 36,
+    fontSize: 26,
     color: "white",
     fontFamily: "HazelnutMilktea-Bold",
   },
@@ -251,6 +402,43 @@ const styles = StyleSheet.create({
     height: 50,
     resizeMode: "contain",
     aspectRatio: 1,
+  },
+  timerContent: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  timerTitle: {
+    fontFamily: "HazelnutMilktea-Bold",
+    fontSize: 14,
+    position: "relative",
+    left: 10,
+  },
+  pickerContainer: {
+    borderRadius: 50,
+    borderWidth: 2,
+    width: "100%",
+    borderColor: Colors.default.colorTextBrown,
+  },
+  picker: {
+    width: "100%",
+    overflow: "hidden",
+    color: "#000",
+  },
+  iconContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-around",
+    width: "100%",
+    marginTop: 10,
+  },
+  checkButton: {
+    width: 50,
+    height: 50,
+    borderColor: Colors.default.colorTextBrown,
+    borderRadius: 20,
+    borderWidth: 2,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
 

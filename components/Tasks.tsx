@@ -13,7 +13,7 @@ import { FontAwesome } from "@expo/vector-icons";
 import { Colors } from "@/constants/Colors";
 import Button from "./Button";
 import ModalComponent from "@Components/Modal";
-import { ref, push, update } from "firebase/database";
+import { ref, push, update, onValue, get } from "firebase/database";
 import { authentication, database } from "@/firebase/Firebase";
 
 interface Task {
@@ -28,7 +28,14 @@ interface Task {
 interface SessionData {
   id: string;
   title: string;
-  tasks: Task[];
+  tasks: { [key: string]: Task };
+}
+
+interface PuzzleItem {
+  id: string;
+  image: string;
+  openIndex: number[];
+  status: string;
 }
 
 interface TasksProps {
@@ -36,26 +43,29 @@ interface TasksProps {
   sessionData?: SessionData; // Prop to accept session data
   userId: string;
   selectedDate: string;
+  onSessionSave: (newSession: SessionData) => void; // Prop to handle session save
 }
 
 const Tasks: React.FC<TasksProps> = ({
   onClose,
   sessionData,
   selectedDate,
+  onSessionSave,
 }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [isEditing, setIsEditing] = useState(false);
-  const [title, setTitle] = useState(sessionData?.title || "Add Title");
+  const [title, setTitle] = useState(sessionData?.title || "");
   const [tempTitle, setTempTitle] = useState(title);
   const currentUserID = authentication.currentUser?.uid;
 
   useEffect(() => {
     // Load tasks from sessionData if available
     if (sessionData) {
-      setTasks(sessionData.tasks || []); // Ensure tasks is an array
+      const tasksArray = Object.values(sessionData.tasks || {});
+      setTasks(tasksArray);
       setTitle(sessionData.title);
       setTempTitle(sessionData.title);
     }
@@ -83,13 +93,17 @@ const Tasks: React.FC<TasksProps> = ({
     });
     setTasks(updatedTasks);
 
-    // Save progress to Firebase
+    // Save progress to Firebase immediately
     try {
       const sessionRef = ref(
         database,
         `Sessions/${currentUserID}/${selectedDate}/sessions/${sessionData?.id}/`
       );
-      await update(sessionRef, { tasks: updatedTasks });
+      const tasksObject = updatedTasks.reduce((acc, task) => {
+        acc[task.id] = task;
+        return acc;
+      }, {} as { [key: string]: Task });
+      await update(sessionRef, { tasks: tasksObject });
       console.log("Task status updated in Firebase.");
     } catch (error) {
       console.error("Error updating task status:", error);
@@ -97,7 +111,7 @@ const Tasks: React.FC<TasksProps> = ({
     }
   };
 
-  const addTask = async () => {
+  const addTask = () => {
     if (newTaskTitle.trim()) {
       const newTask: Task = {
         id: `task-${Date.now()}`,
@@ -108,39 +122,30 @@ const Tasks: React.FC<TasksProps> = ({
       const updatedTasks = [...tasks, newTask];
       setTasks(updatedTasks);
       setNewTaskTitle("");
-
-      // Save new task to Firebase
-      try {
-        if (!sessionData?.id) {
-          // Push a new session with a unique key if it doesn't exist
-          const newSessionRef = push(
-            ref(database, `Sessions/${currentUserID}/${selectedDate}/sessions`)
-          );
-          const newSessionKey = newSessionRef.key;
-          if (newSessionKey) {
-            await update(newSessionRef, {
-              id: newSessionKey,
-              title: title,
-              tasks: updatedTasks,
-            });
-            console.log("New session with task added to Firebase.");
-          }
-        } else {
-          // Update the existing session
-          const sessionRef = ref(
-            database,
-            `Sessions/${currentUserID}/${selectedDate}/sessions/${sessionData.id}`
-          );
-          await update(sessionRef, {
-            tasks: updatedTasks,
-          });
-          console.log("New task added to existing session in Firebase.");
-        }
-      } catch (error) {
-        console.error("Error adding new task:", error);
-        Alert.alert("Error", "Failed to add new task. Please try again.");
-      }
     }
+  };
+
+  const deleteTask = async (taskId: string) => {
+    const updatedTasks = tasks.filter((task) => task.id !== taskId);
+    setTasks(updatedTasks);
+
+    // Save the updated tasks to Firebase
+    try {
+      const sessionRef = ref(
+        database,
+        `Sessions/${currentUserID}/${selectedDate}/sessions/${sessionData?.id}/`
+      );
+      const tasksObject = updatedTasks.reduce((acc, task) => {
+        acc[task.id] = task;
+        return acc;
+      }, {} as { [key: string]: Task });
+      await update(sessionRef, { tasks: tasksObject });
+      console.log("Task deleted and updated in Firebase.");
+    } catch (error) {
+      console.error("Error deleting task:", error);
+      Alert.alert("Error", "Failed to delete task. Please try again.");
+    }
+    setIsModalVisible(false);
   };
 
   const openEditModal = (task: Task) => {
@@ -148,47 +153,146 @@ const Tasks: React.FC<TasksProps> = ({
     setIsModalVisible(true);
   };
 
-  const saveTaskDetails = async () => {
+  const saveTaskDetails = () => {
     if (selectedTask) {
       const updatedTasks = tasks.map((task) =>
         task.id === selectedTask.id ? selectedTask : task
       );
       setTasks(updatedTasks);
       setIsModalVisible(false);
-
-      // Save edited task to Firebase
-      try {
-        const sessionRef = ref(
-          database,
-          `Sessions/${currentUserID}/${selectedDate}/sessions/${sessionData?.id}`
-        );
-        await update(sessionRef, { tasks: updatedTasks });
-        console.log("Task details updated in Firebase.");
-      } catch (error) {
-        console.error("Error updating task details:", error);
-        Alert.alert(
-          "Error",
-          "Failed to update task details. Please try again."
-        );
-      }
     }
   };
 
   const handleSave = async () => {
     setTitle(tempTitle);
+    console.log(title);
+    if (!tempTitle || tempTitle === "") {
+      Alert.alert("Error", "Title cannot be empty. Please enter a title.");
+      return;
+    }
     setIsEditing(false);
 
-    // Save edited session title to Firebase
+    // Save edited session title and tasks to Firebase
     try {
-      const sessionRef = ref(
-        database,
-        `Sessions/${currentUserID}/${selectedDate}/sessions/${sessionData?.id}`
-      );
-      await update(sessionRef, { title: tempTitle });
-      console.log("Session title updated in Firebase.");
+      const newSession: SessionData = {
+        id: sessionData?.id || "",
+        title: tempTitle,
+        tasks: tasks.reduce((acc, task) => {
+          acc[task.id] = task;
+          return acc;
+        }, {} as { [key: string]: Task }),
+      };
+
+      if (!sessionData?.id) {
+        // Push a new session with a unique key if it doesn't exist
+        const newSessionRef = push(
+          ref(database, `Sessions/${currentUserID}/${selectedDate}/sessions`)
+        );
+        const newSessionKey = newSessionRef.key;
+        if (newSessionKey) {
+          newSession.id = newSessionKey;
+          await update(newSessionRef, newSession);
+          console.log("New session with tasks added to Firebase.");
+        }
+      } else {
+        // Update the existing session
+        const sessionRef = ref(
+          database,
+          `Sessions/${currentUserID}/${selectedDate}/sessions/${sessionData.id}`
+        );
+        await update(sessionRef, newSession);
+        console.log("Session title and tasks updated in Firebase.");
+      }
+
+      // Call the onSessionSave function to update the sessions list
+      onSessionSave(newSession);
     } catch (error) {
-      console.error("Error updating session title:", error);
-      Alert.alert("Error", "Failed to update session title. Please try again.");
+      console.error("Error updating session title and tasks:", error);
+      Alert.alert(
+        "Error",
+        "Failed to update session title and tasks. Please try again."
+      );
+    }
+  };
+  useEffect(() => {
+    async function updateGalleryOpenPuzzle() {
+      console.log(progressPercentage);
+      // Check if the session is 100% complete and update the Gallery item
+      if (progressPercentage === 100) {
+        await updateGalleryItem();
+      }
+    }
+    updateGalleryOpenPuzzle();
+  }, [progressPercentage]);
+
+  // const updateGalleryItem = async () => {
+  //   console.log("Updating Gallery item...");
+  //   const itemsRef = ref(database, `Gallery/${currentUserID}/Items`);
+  //   onValue(itemsRef, (snapshot) => {
+  //     const data = snapshot.val();
+  //     if (data) {
+  //       const items = Object.values(data) as PuzzleItem[];
+  //       const inProgressItem = items.find(
+  //         (item) => item.status === "in-progress"
+  //       );
+  //       if (inProgressItem) {
+  //         const maxIndex = 35;
+  //         let randomIndex: number;
+  //         do {
+  //           randomIndex = Math.floor(Math.random() * maxIndex) + 1;
+  //         } while (inProgressItem.openIndex.includes(randomIndex));
+
+  //         const updatedOpenIndex = [...inProgressItem.openIndex, randomIndex];
+  //         const itemRef = ref(
+  //           database,
+  //           `Gallery/${currentUserID}/Items/${inProgressItem.id}`
+  //         );
+  //         update(itemRef, { openIndex: updatedOpenIndex });
+  //         console.log("Gallery item updated with new openIndex.");
+  //       }
+  //     }
+  //   });
+  // };
+
+  const updateGalleryItem = async () => {
+    console.log("Updating Gallery item...");
+    const currentUserID = authentication.currentUser?.uid;
+    if (!currentUserID) {
+      console.error("User is not authenticated.");
+      return;
+    }
+
+    const itemsRef = ref(database, `Gallery/${currentUserID}/Items`);
+    const snapshot = await get(itemsRef);
+    const data = snapshot.val();
+
+    if (data) {
+      const items = Object.values(data) as PuzzleItem[];
+      const inProgressItem = items.find(
+        (item) => item.status === "in-progress"
+      );
+
+      if (inProgressItem) {
+        const maxIndex = 35;
+        const maxOpenIndex = 35;
+
+        if (inProgressItem.openIndex.length < maxOpenIndex) {
+          let randomIndex: number;
+          do {
+            randomIndex = Math.floor(Math.random() * maxIndex) + 1;
+          } while (inProgressItem.openIndex.includes(randomIndex));
+
+          const updatedOpenIndex = [...inProgressItem.openIndex, randomIndex];
+          const itemRef = ref(
+            database,
+            `Gallery/${currentUserID}/Items/${inProgressItem.id}`
+          );
+          await update(itemRef, { openIndex: updatedOpenIndex });
+          console.log("Gallery item updated with new openIndex.");
+        } else {
+          console.log("Gallery item openIndex is already full.");
+        }
+      }
     }
   };
 
@@ -207,9 +311,11 @@ const Tasks: React.FC<TasksProps> = ({
       <View style={styles.header}>
         <TextInput
           style={styles.title}
-          value={tempTitle || "Add Task Name"}
+          value={tempTitle}
           onChangeText={setTempTitle}
           editable={isEditing}
+          placeholder="Add Task Name"
+          placeholderTextColor={Colors.default.colorTextBrown}
         />
         <TouchableOpacity onPress={onClose}>
           <FontAwesome
@@ -353,6 +459,21 @@ const Tasks: React.FC<TasksProps> = ({
         onClose={() => setIsModalVisible(false)}
         content={
           <View>
+            <TouchableOpacity
+              style={{
+                position: "absolute",
+                top: -45,
+                right: 0,
+              }}
+              onPress={() => deleteTask(selectedTask?.id || "")}
+            >
+              <FontAwesome
+                name="trash-o"
+                size={24}
+                color={Colors.default.colorTextBrown}
+              />
+            </TouchableOpacity>
+
             <TextInput
               style={styles.modalInput}
               placeholder="Title"

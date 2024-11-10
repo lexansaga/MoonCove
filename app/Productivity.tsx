@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -18,6 +18,21 @@ import { globalStyles } from "@/constants/GlobalStyles";
 import { ref, onValue } from "firebase/database";
 import { authentication, database } from "@/firebase/Firebase";
 import useUser from "@/store/User.store";
+
+interface Task {
+  id: string;
+  title: string;
+  description: string;
+  status: string;
+  date_created?: string;
+  date_finish?: string;
+}
+
+interface SessionData {
+  id: string;
+  title: string;
+  tasks: { [key: string]: Task };
+}
 
 const Productivity: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<string>("");
@@ -56,18 +71,15 @@ const Productivity: React.FC = () => {
                 return;
               }
 
-              const totalTasks = sessions.reduce(
-                (sum, session: any) => sum + (session.tasks?.length || 0),
-                0
-              );
-              const completedTasks = sessions.reduce(
-                (sum, session: any) =>
-                  sum +
-                  (session.tasks?.filter(
-                    (task: any) => task?.status === "completed"
-                  ).length || 0),
-                0
-              );
+              let totalTasks = 0;
+              let completedTasks = 0;
+
+              sessions.forEach((session: SessionData) => {
+                totalTasks += Object.values(session.tasks).length;
+                completedTasks += Object.values(session.tasks).filter(
+                  (task: Task) => task.status === "completed"
+                ).length;
+              });
 
               let statusColor = Colors.status.worst;
               let emoji = "😫";

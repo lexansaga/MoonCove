@@ -19,7 +19,12 @@ import { Link, useRouter } from "expo-router";
 import { getAuth, signOut } from "firebase/auth";
 import useUser from "@/store/User.store";
 import { ref, set } from "firebase/database";
-import { database } from "@/firebase/Firebase";
+import { database, storage } from "@/firebase/Firebase";
+import {
+  getDownloadURL,
+  uploadBytes,
+  ref as storageRef,
+} from "firebase/storage";
 
 const Profile: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
@@ -34,6 +39,7 @@ const Profile: React.FC = () => {
     gender: "",
     password: "",
     bio: "",
+    profile: "",
   });
 
   const user = useUser();
@@ -81,17 +87,34 @@ const Profile: React.FC = () => {
   };
 
   const handleSave = async () => {
+    let profileLink = selectedImage || user.profile;
+
     if (tempImage) {
-      setSelectedImage(tempImage);
-      setUser({ ...user, profile: tempImage });
-      setTempImage(null);
+      try {
+        const response = await fetch(tempImage);
+        const blob = await response.blob();
+        const storagePath = `Profile/${user.id}.jpg`;
+        const storageReference = storageRef(storage, storagePath);
+
+        // Upload the image to Firebase Storage
+        await uploadBytes(storageReference, blob);
+
+        // Get the download URL of the uploaded image
+        profileLink = await getDownloadURL(storageReference);
+        setSelectedImage(profileLink);
+        setUser({ ...user, profile: profileLink });
+      } catch (error) {
+        console.error("Error uploading image to Firebase Storage:", error);
+        Alert.alert("Error", "Failed to upload the profile image.");
+        return;
+      }
     }
 
     // Save updated data to Zustand store
     setUser({
       ...user,
       ...tempUser,
-      profile: selectedImage || user.profile,
+      profile: profileLink,
     });
 
     setIsEditable(false);
@@ -99,12 +122,13 @@ const Profile: React.FC = () => {
     try {
       await set(ref(database, `Users/${user?.id}`), {
         ...tempUser,
-        profile: selectedImage || user.profile,
+        profile: profileLink,
       });
+      Alert.alert("Success", "Profile updated successfully!");
     } catch (error) {
-      console.log(error);
+      console.error("Error saving profile data to Firebase Database:", error);
+      Alert.alert("Error", "Failed to save profile data.");
     }
-    Alert.alert("Success", "Profile updated successfully!");
   };
 
   const handleEditToggle = () => {
@@ -122,7 +146,9 @@ const Profile: React.FC = () => {
       gender: user.gender,
       password: user.password,
       bio: user.bio,
+      profile: user.profile,
     });
+    console.log(user.profile);
   }, [user]);
 
   return (
@@ -152,13 +178,18 @@ const Profile: React.FC = () => {
               style={[
                 styles.avatarContainer,
                 {
-                  padding: tempImage ? 5 : 20,
+                  padding: tempImage || tempUser.profile ? 5 : 20,
                 },
               ]}
             >
               {tempImage ? (
                 <Image
                   source={{ uri: tempImage }}
+                  style={styles.profileImage}
+                />
+              ) : tempUser.profile ? (
+                <Image
+                  source={{ uri: tempUser?.profile }}
                   style={styles.profileImage}
                 />
               ) : (
@@ -202,12 +233,12 @@ const Profile: React.FC = () => {
             <Input
               placeholder="Email"
               value={tempUser.email}
-              editable={isEditable}
+              editable={false}
               onChangeText={(text) =>
                 setTempUser((prev) => ({ ...prev, email: text }))
               }
             />
-            <Input
+            {/* <Input
               placeholder="Password"
               value={tempUser.password}
               secureTextEntry
@@ -215,7 +246,7 @@ const Profile: React.FC = () => {
               onChangeText={(text) =>
                 setTempUser((prev) => ({ ...prev, password: text }))
               }
-            />
+            /> */}
 
             {/* Gender Dropdown */}
             <Dropdown

@@ -13,7 +13,13 @@ import { FontAwesome } from "@expo/vector-icons";
 import { Colors } from "@/constants/Colors";
 import { Link, useRouter } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
-import { get, ref } from "firebase/database";
+import { get, ref, set, push } from "firebase/database";
+import {
+  getStorage,
+  ref as storageRef,
+  listAll,
+  getDownloadURL,
+} from "firebase/storage";
 import { authentication, database } from "@/firebase/Firebase";
 import useUser from "@/store/User.store";
 
@@ -46,9 +52,50 @@ const HomeScreen: React.FC = () => {
       }
     };
 
+    const createGalleryStructure = async (userId: string) => {
+      try {
+        const galleryRef = ref(database, `Gallery/${userId}/Items`);
+        const snapshot = await get(galleryRef);
+
+        if (!snapshot.exists()) {
+          const storage = getStorage();
+          const quotesRef = storageRef(storage, "Quotes");
+          const { items } = await listAll(quotesRef);
+
+          const imageUrls = await Promise.all(
+            items.map(async (itemRef) => {
+              const url = await getDownloadURL(itemRef);
+              return url;
+            })
+          );
+
+          const newItems = imageUrls.map((imageUrl, index) => ({
+            id: `quote-${index}`,
+            image: imageUrl,
+            openIndex: [0],
+            status: index > 0 ? "pending" : "in-progress",
+          }));
+          console.log(newItems);
+
+          newItems.forEach((item) => {
+            const itemRef = ref(database, `Gallery/${userId}/Items/${item.id}`);
+            set(itemRef, item);
+          });
+
+          console.log("Gallery structure created for new user.");
+        } else {
+          console.log("Gallery structure already exists for the user.");
+        }
+      } catch (error) {
+        console.error("Error creating gallery structure:", error);
+        Alert.alert("Error", "Failed to create gallery structure.");
+      }
+    };
+
     const unsubscribe = onAuthStateChanged(authentication, (user) => {
       if (user) {
         fetchCurrentUser(user.uid);
+        createGalleryStructure(user.uid); // Create gallery structure for new user
       } else {
         router.replace("/Login"); // Redirect to login if not authenticated
       }
@@ -127,7 +174,7 @@ const HomeScreen: React.FC = () => {
               activeOpacity={0.8}
               style={[styles.menuItem, styles.puzzle]}
               onPress={() => {
-                router.push("/Puzzle");
+                router.push("/Gallery");
               }}
             >
               <Image
