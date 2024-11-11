@@ -41,6 +41,7 @@ interface SessionData {
   id: string;
   title: string;
   tasks: { [key: string]: Task }; // Updated to reflect the new structure
+  progress: number;
 }
 
 const Session: React.FC = () => {
@@ -54,6 +55,7 @@ const Session: React.FC = () => {
     null
   );
   const [refreshing, setRefreshing] = useState(false);
+  const [showCompleted, setShowCompleted] = useState(false);
   const slideAnim = useRef(new Animated.Value(0)).current;
   const user = useUser();
 
@@ -68,12 +70,16 @@ const Session: React.FC = () => {
         const snapshot = await get(userRef);
         if (snapshot.exists()) {
           const data = snapshot.val();
-          const sessionsArray = Object.keys(data).map((key) => ({
-            id: key,
-            ...data[key],
-          }));
+          const sessionsArray = Object.keys(data).map((key) => {
+            const session = data[key];
+            return {
+              id: key,
+              ...session,
+              progress: session.progress !== undefined ? session.progress : 0,
+            };
+          });
           setSessions(sessionsArray);
-          console.log(sessions);
+          console.log(sessionsArray);
         }
       } catch (error) {
         console.error("Error fetching sessions:", error);
@@ -209,6 +215,20 @@ const Session: React.FC = () => {
         <Link href={"/HomeScreen"} style={globalStyles.overlink}></Link>
       </TouchableOpacity>
 
+      <TouchableOpacity
+        style={styles.completedButton}
+        activeOpacity={0.7}
+        onPress={() => {
+          setShowCompleted(!showCompleted);
+        }}
+      >
+        <FontAwesome5
+          name="check-circle"
+          size={18}
+          color={Colors.default.colorSecondary}
+        />
+      </TouchableOpacity>
+
       <View style={styles.productivityContainer} {...panResponder.panHandlers}>
         {data && (
           <View style={styles.pieChartContainer}>
@@ -277,21 +297,30 @@ const Session: React.FC = () => {
             Add Session
           </Text>
         </TouchableOpacity>
-        {sessions.map((session) => (
-          <TouchableOpacity
-            style={styles.sessionButton}
-            key={session.id}
-            activeOpacity={0.7}
-            onPress={() => toggleTasks(session)}
-          >
-            <Image
-              source={require("@Assets/open-book.png")}
-              alt="Session"
-              style={styles.sessionImage}
-            />
-            <Text style={styles.sessionButtonText}>{session.title}</Text>
-          </TouchableOpacity>
-        ))}
+        {sessions.map(
+          (session) =>
+            session &&
+            (showCompleted === true
+              ? session.progress === 100
+              : session.progress !== 100) && (
+              <TouchableOpacity
+                style={[
+                  styles.sessionButton,
+                  showCompleted && styles.completedSessionButton,
+                ]}
+                key={session.id}
+                activeOpacity={0.7}
+                onPress={() => toggleTasks(session)}
+              >
+                <Image
+                  source={require("@Assets/open-book.png")}
+                  alt="Session"
+                  style={styles.sessionImage}
+                />
+                <Text style={styles.sessionButtonText}>{session.title}</Text>
+              </TouchableOpacity>
+            )
+        )}
       </ScrollView>
 
       {showTasks && selectedSession && (
@@ -323,6 +352,20 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 45,
     left: 15,
+    borderRadius: 3,
+    borderWidth: 1,
+    borderColor: Colors.default.colorSecondary,
+    aspectRatio: 1,
+    height: 40,
+    width: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 2,
+  },
+  completedButton: {
+    position: "absolute",
+    top: 45,
+    right: 15,
     borderRadius: 3,
     borderWidth: 1,
     borderColor: Colors.default.colorSecondary,
@@ -384,6 +427,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     aspectRatio: 1,
     flexDirection: "column",
+  },
+  completedSessionButton: {
+    borderColor: Colors.default.colorBlue,
   },
   sessionImage: {
     width: "90%",

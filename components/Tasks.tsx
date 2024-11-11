@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import { FontAwesome } from "@expo/vector-icons";
 import { Colors } from "@/constants/Colors";
 import Button from "./Button";
 import ModalComponent from "@Components/Modal";
-import { ref, push, update, onValue, get } from "firebase/database";
+import { ref, push, update, onValue, get, remove } from "firebase/database";
 import { authentication, database } from "@/firebase/Firebase";
 
 interface Task {
@@ -165,7 +165,6 @@ const Tasks: React.FC<TasksProps> = ({
 
   const handleSave = async () => {
     setTitle(tempTitle);
-    console.log(title);
     if (!tempTitle || tempTitle === "") {
       Alert.alert("Error", "Title cannot be empty. Please enter a title.");
       return;
@@ -214,6 +213,7 @@ const Tasks: React.FC<TasksProps> = ({
       );
     }
   };
+  const previousProgress = useRef(progressPercentage);
   useEffect(() => {
     async function updateGalleryOpenPuzzle() {
       console.log(progressPercentage);
@@ -221,9 +221,23 @@ const Tasks: React.FC<TasksProps> = ({
       if (progressPercentage === 100) {
         await updateGalleryItem();
       }
+      if (sessionData && sessionData?.id) {
+        const sessionRef = ref(
+          database,
+          `Sessions/${currentUserID}/${selectedDate}/sessions/${sessionData?.id}`
+        );
+        await update(sessionRef, {
+          progress: progressPercentage,
+        });
+      }
     }
-    updateGalleryOpenPuzzle();
-  }, [progressPercentage]);
+
+    // Only update if the progress percentage has changed
+    if (progressPercentage !== previousProgress.current) {
+      updateGalleryOpenPuzzle();
+      previousProgress.current = progressPercentage;
+    }
+  }, [progressPercentage, currentUserID, selectedDate, sessionData]);
 
   // const updateGalleryItem = async () => {
   //   console.log("Updating Gallery item...");
@@ -304,6 +318,43 @@ const Tasks: React.FC<TasksProps> = ({
   const handleCancel = () => {
     setTempTitle(title); // Revert any changes to the title
     setIsEditing(false);
+  };
+
+  const handleDelete = async () => {
+    async function triggerDelete() {
+      try {
+        // Reference to the specific session in the database
+        const sessionRef = ref(
+          database,
+          `Sessions/${currentUserID}/${selectedDate}/sessions/${sessionData?.id}`
+        );
+
+        // Remove the session from the database
+        await remove(sessionRef);
+
+        onClose();
+        console.log("Session deleted successfully");
+      } catch (error) {
+        console.error("Error deleting session:", error);
+      }
+    }
+    Alert.alert(
+      "Delete Session",
+      "Are you sure you want to delete this session?",
+      [
+        {
+          text: "No",
+          style: "cancel",
+        },
+        {
+          text: "Yes",
+          onPress: () => {
+            triggerDelete();
+          },
+        },
+      ],
+      { cancelable: false }
+    );
   };
 
   return (
@@ -434,14 +485,29 @@ const Tasks: React.FC<TasksProps> = ({
                 />
               </>
             ) : (
-              <Button
-                title="Edit Session"
-                customStyles={{
-                  backgroundColor: Colors.default.colorBlue,
-                  textColor: "white",
+              <View
+                style={{
+                  flexDirection: "column",
+                  gap: 8,
                 }}
-                onPress={handleEdit}
-              />
+              >
+                <Button
+                  title="Edit Session"
+                  customStyles={{
+                    backgroundColor: Colors.default.colorBlue,
+                    textColor: "white",
+                  }}
+                  onPress={handleEdit}
+                />
+                <Button
+                  title="Delete Session"
+                  customStyles={{
+                    backgroundColor: Colors.default.colorRed,
+                    textColor: "white",
+                  }}
+                  onPress={handleDelete}
+                />
+              </View>
             )}
           </View>
 
