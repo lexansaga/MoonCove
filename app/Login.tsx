@@ -29,10 +29,20 @@ const Login: React.FC = () => {
   const router = useRouter();
 
   useEffect(() => {
-    // Check if user is already logged in
+    // Check if user is already logged in and if their email is verified
     const unsubscribe = onAuthStateChanged(authentication, (user) => {
       if (user) {
-        router.replace("/HomeScreen"); // Redirect to HomeScreen if already logged in
+        if (user.emailVerified) {
+          router.replace("/HomeScreen"); // Redirect to HomeScreen if already logged in and email is verified
+        } else {
+          ToastAndroid.showWithGravity(
+            "Please verify your email before logging in.",
+            ToastAndroid.LONG,
+            ToastAndroid.CENTER
+          );
+          // Optionally, you can sign out the user here to force them to verify their email
+          authentication.signOut();
+        }
       }
     });
 
@@ -56,6 +66,16 @@ const Login: React.FC = () => {
       );
       const user = userCredential.user;
 
+      // Check if the user's email is verified
+      if (!user.emailVerified) {
+        ToastAndroid.showWithGravity(
+          "Please verify your email before logging in.",
+          ToastAndroid.LONG,
+          ToastAndroid.CENTER
+        );
+        return;
+      }
+
       // Fetch user data from Firebase Realtime Database
       const userRef = ref(database, `Users/${user.uid}`);
       const snapshot = await get(userRef);
@@ -76,11 +96,11 @@ const Login: React.FC = () => {
         );
         router.replace("/HomeScreen"); // Use replace to prevent going back to login
       } else {
-        ToastAndroid.showWithGravity(
-          "User data not found in the database.",
-          ToastAndroid.LONG,
-          ToastAndroid.CENTER
-        );
+        // ToastAndroid.showWithGravity(
+        //   "User data not found in the database.",
+        //   ToastAndroid.LONG,
+        //   ToastAndroid.CENTER
+        // );
       }
     } catch (error: any) {
       console.error("Error during login:", error);

@@ -15,7 +15,11 @@ import Input from "@/components/Input";
 import { Link } from "expo-router";
 import Dropdown from "@/components/Drodpown";
 import Button from "@/components/Button";
-import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
+import {
+  getAuth,
+  createUserWithEmailAndPassword,
+  sendEmailVerification,
+} from "firebase/auth";
 import { getDatabase, ref, set } from "firebase/database";
 import { authentication, database } from "@/firebase/Firebase";
 
@@ -72,8 +76,10 @@ const Signup: React.FC = () => {
         gender,
       });
 
+      await sendEmailVerification(user);
+
       ToastAndroid.showWithGravity(
-        "User registered successfully!",
+        "User registered successfully! \n Please Check your email for verification!",
         ToastAndroid.SHORT,
         ToastAndroid.CENTER
       );

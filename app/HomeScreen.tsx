@@ -44,7 +44,7 @@ const HomeScreen: React.FC = () => {
             gender: userData.gender,
           });
         } else {
-          Alert.alert("Error", "User data not found in the database.");
+          // Alert.alert("Error", "User data not found in the database.");
         }
       } catch (error) {
         console.error("Error fetching user data:", error);

@@ -264,6 +264,7 @@ const Profile: React.FC = () => {
             <Input
               placeholder="Bio"
               multiline
+              value={tempUser.bio}
               editable={isEditable}
               onChangeText={(text) =>
                 setTempUser((prev) => ({ ...prev, bio: text }))
