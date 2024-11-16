@@ -29,6 +29,7 @@ export default function Relax() {
   // Accessing states and functions from useSettings store
   const timer = useSettings((state) => state.timer);
   const setTimer = useSettings((state) => state.setProductivityTimer);
+  const setTimeUnix = useSettings((state) => state.setTimeUnix);
   const volume = useSettings((state) => state.volume);
   const toggleVolume = useSettings((state) => state.toggleVolume);
 
@@ -67,6 +68,12 @@ export default function Relax() {
       .toString()
       .padStart(2, "0")} -- ${selectedSeconds.toString().padStart(2, "0")}`;
     setTimer(timeString);
+
+    const totalSeconds =
+      selectedHours * 3600 + selectedMinutes * 60 + selectedSeconds;
+    const unixTime = Date.now() + totalSeconds * 1000; // Convert total seconds to milliseconds
+    setTimeUnix(unixTime);
+
     handleCloseModal();
   };
 
@@ -172,7 +179,9 @@ export default function Relax() {
                 <Picker
                   selectedValue={selectedHours}
                   style={styles.picker}
-                  onValueChange={(itemValue) => setSelectedHours(itemValue)}
+                  onValueChange={(itemValue) =>
+                    setSelectedHours(Number(itemValue))
+                  }
                 >
                   {[...Array(24).keys()].map((value) => (
                     <Picker.Item
@@ -191,7 +200,9 @@ export default function Relax() {
                 <Picker
                   selectedValue={selectedMinutes}
                   style={styles.picker}
-                  onValueChange={(itemValue) => setSelectedMinutes(itemValue)}
+                  onValueChange={(itemValue) =>
+                    setSelectedMinutes(Number(itemValue))
+                  }
                 >
                   {[...Array(60).keys()].map((value) => (
                     <Picker.Item
@@ -210,7 +221,10 @@ export default function Relax() {
                 <Picker
                   selectedValue={selectedSeconds}
                   style={styles.picker}
-                  onValueChange={(itemValue) => setSelectedSeconds(itemValue)}
+                  onValueChange={(itemValue) => {
+                    console.log(itemValue);
+                    setSelectedSeconds(Number(itemValue));
+                  }}
                 >
                   {[...Array(60).keys()].map((value) => (
                     <Picker.Item
@@ -221,6 +235,35 @@ export default function Relax() {
                   ))}
                 </Picker>
               </View>
+            </View>
+
+            <View
+              style={{
+                display: "flex",
+                flexDirection: "row",
+                justifyContent: "center",
+
+                gap: 8,
+                marginTop: 16,
+              }}
+            >
+              <Button
+                title="Save"
+                variant="Primary"
+                onPress={() => {
+                  setIsTimeModalVisible(false);
+                }}
+              />
+              <Button
+                title="Reset"
+                variant="Secondary"
+                onPress={() => {
+                  setSelectedHours(0);
+                  setSelectedMinutes(0);
+                  setSelectedSeconds(0);
+                  setTimeUnix(0);
+                }}
+              />
             </View>
           </View>
         }

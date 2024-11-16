@@ -18,16 +18,31 @@
     "android": {
       "package": "com.akoto101.MoonCove"
     },
-    "jsEngine": "hermes"
+    "jsEngine": "hermes",
+    "extra": {
+      "eas": {
+        "projectId": "212ab660-7b6d-423b-a29e-7e3159782aed"
+      }
+    }
   },
   "ios": {
-    "supportsTablet": true
+    "supportsTablet": true,
+    "config": {
+      "backgroundMode": [
+        "fetch",
+        "remote-notification"
+      ]
+    }
   },
   "android": {
     "adaptiveIcon": {
       "foregroundImage": "./assets/images/adaptive-icon.png",
       "backgroundColor": "#ffffff"
-    }
+    },
+    "permissions": [
+      "RECEIVE_BOOT_COMPLETED",
+      "VIBRATE"
+    ]
   },
   "web": {
     "bundler": "metro",

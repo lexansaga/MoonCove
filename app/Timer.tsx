@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   Image,
+  Platform,
+  Alert,
 } from "react-native";
 import { Colors } from "@/constants/Colors";
 import Button from "@Components/Button"; // Assuming Button component is located here
@@ -16,6 +18,52 @@ import FloatingGlitter from "@Components/FloatingGlitters";
 import { Audio } from "expo-av";
 import ModalComponent from "@Components/Modal";
 import { Picker } from "@react-native-picker/picker";
+import * as TaskManager from "expo-task-manager";
+import * as Notifications from "expo-notifications";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const BACKGROUND_FETCH_TASK = "background-fetch";
+
+TaskManager.defineTask(BACKGROUND_FETCH_TASK, async ({ data, error }) => {
+  if (error) {
+    console.error(error);
+    return;
+  }
+
+  try {
+    const timerState = await AsyncStorage.getItem("timerState");
+    if (timerState) {
+      const { time, isRunning } = JSON.parse(timerState);
+      if (isRunning && time > 0) {
+        const newTime = time - 1;
+        await AsyncStorage.setItem(
+          "timerState",
+          JSON.stringify({ time: newTime, isRunning })
+        );
+
+        if (newTime === 0) {
+          await Notifications.scheduleNotificationAsync({
+            content: {
+              title: "Time's up!",
+              body: "Your timer has ended.",
+            },
+            trigger: null, // Show immediately
+          });
+        }
+      }
+    }
+  } catch (error) {
+    console.error(error);
+  }
+});
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
 
 const Timer: React.FC = () => {
   const [time, setTime] = useState(0);
@@ -43,6 +91,38 @@ const Timer: React.FC = () => {
     };
     loadSound();
 
+    // Request permissions for push notifications
+    const requestPermissions = async () => {
+      const { status: existingStatus } =
+        await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+
+      if (existingStatus !== "granted") {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+
+      if (finalStatus !== "granted") {
+        alert("Failed to get push token for push notification!");
+        return;
+      }
+
+      const token = (await Notifications.getExpoPushTokenAsync()).data;
+      console.log(token);
+    };
+    requestPermissions();
+
+    // Load timer state from AsyncStorage
+    const loadTimerState = async () => {
+      const timerState = await AsyncStorage.getItem("timerState");
+      if (timerState) {
+        const { time, isRunning } = JSON.parse(timerState);
+        setTime(time);
+        setIsRunning(isRunning);
+      }
+    };
+    loadTimerState();
+
     return () => {
       // Unload sound when component unmounts
       if (soundRef.current) {
@@ -54,15 +134,20 @@ const Timer: React.FC = () => {
   // Start the timer and play music
   const startTimer = async () => {
     setIsRunning(true);
+    const emptyHours =
+      selectedHours === 0 && selectedMinutes === 0 && selectedSeconds === 0;
     timerRef.current = setInterval(() => {
-      if (
-        selectedHours === 0 &&
-        selectedMinutes === 0 &&
-        selectedSeconds === 0
-      ) {
+      if (emptyHours) {
         setTime((prevTime) => prevTime + 1);
       } else {
-        setTime((prevTime) => prevTime - 1);
+        setTime((prevTime) => {
+          console.log(prevTime);
+          if (prevTime === 0) {
+            stopTimer();
+            showNotification();
+          }
+          return prevTime - 1;
+        });
       }
     }, 1000);
 
@@ -74,12 +159,24 @@ const Timer: React.FC = () => {
     } catch (error) {
       console.error("Error playing sound:", error);
     }
+
+    // Save timer state to AsyncStorage
+    await AsyncStorage.setItem(
+      "timerState",
+      JSON.stringify({ time, isRunning: true })
+    );
   };
 
   // Pause the timer
-  const pauseTimer = () => {
+  const pauseTimer = async () => {
     if (timerRef.current) clearInterval(timerRef.current);
     setIsRunning(false);
+
+    // Save timer state to AsyncStorage
+    await AsyncStorage.setItem(
+      "timerState",
+      JSON.stringify({ time, isRunning: false })
+    );
   };
 
   // Stop and reset the timer and stop music
@@ -94,6 +191,23 @@ const Timer: React.FC = () => {
       await soundRef.current.stopAsync();
       await soundRef.current.setPositionAsync(0);
     }
+
+    // Save timer state to AsyncStorage
+    await AsyncStorage.setItem(
+      "timerState",
+      JSON.stringify({ time: 0, isRunning: false })
+    );
+  };
+
+  // Show notification when the timer ends
+  const showNotification = async () => {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: "Time's up!",
+        body: "Your timer has ended.",
+      },
+      trigger: null, // Show immediately
+    });
   };
 
   // Format time in HH:MM:SS
@@ -120,17 +234,29 @@ const Timer: React.FC = () => {
     setIsModalVisible(false);
   };
 
-  const handleCheckPress = () => {
+  const handleCheckPress = async () => {
     const totalSeconds =
       selectedHours * 3600 + selectedMinutes * 60 + selectedSeconds;
     setTime(totalSeconds);
     handleCloseModal();
+
+    // Save timer state to AsyncStorage
+    await AsyncStorage.setItem(
+      "timerState",
+      JSON.stringify({ time: totalSeconds, isRunning })
+    );
   };
 
-  const handleClearPress = () => {
+  const handleClearPress = async () => {
     setSelectedHours(0);
     setSelectedMinutes(0);
     setSelectedSeconds(0);
+
+    // Save timer state to AsyncStorage
+    await AsyncStorage.setItem(
+      "timerState",
+      JSON.stringify({ time: 0, isRunning: false })
+    );
   };
 
   return (
@@ -362,6 +488,7 @@ const styles = StyleSheet.create({
     height: 35,
     resizeMode: "contain",
     alignSelf: "flex-end",
+    right: 20,
   },
   floatingMoon: {
     width: 20,
@@ -369,8 +496,8 @@ const styles = StyleSheet.create({
     resizeMode: "contain",
     position: "absolute",
     top: "50%",
-    transform: [{ translateY: -30 }],
-    right: -35,
+    transform: [{ translateY: -150 }],
+    right: 25,
   },
   timerCircle: {
     width: 200,

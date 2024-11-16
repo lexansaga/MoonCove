@@ -15,7 +15,11 @@ import Input from "@/components/Input";
 import { Link, useRouter } from "expo-router";
 import Button from "@/components/Button";
 import FloatingGlitter from "@Components/FloatingGlitters";
-import { signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
+import {
+  signInWithEmailAndPassword,
+  onAuthStateChanged,
+  sendEmailVerification,
+} from "firebase/auth";
 import { get, ref } from "firebase/database";
 import { authentication, database } from "@/firebase/Firebase";
 import useUser from "@/store/User.store";
@@ -69,10 +73,11 @@ const Login: React.FC = () => {
       // Check if the user's email is verified
       if (!user.emailVerified) {
         ToastAndroid.showWithGravity(
-          "Please verify your email before logging in.",
+          "Please verify your email before logging in. Check your email for verification link.",
           ToastAndroid.LONG,
           ToastAndroid.CENTER
         );
+        await sendEmailVerification(user);
         return;
       }
 
@@ -87,6 +92,8 @@ const Login: React.FC = () => {
           email: userData.email,
           username: userData.username,
           gender: userData.gender,
+          bio: userData.bio,
+          profile: userData.profile,
         });
 
         ToastAndroid.showWithGravity(

@@ -14,8 +14,10 @@ import tinycolor from "tinycolor2";
 import Button from "@Components/Button";
 import { Audio } from "expo-av";
 import useSettings from "@/store/Settings.store";
+import { useRouter } from "expo-router";
 
 export default function ColorSort() {
+  const router = useRouter();
   const [colorGrid, setColorGrid] = useState(
     generateColors().map((item) => ({
       ...item,
@@ -32,6 +34,29 @@ export default function ColorSort() {
 
   // Access the volume state from the settings store
   const volume = useSettings((state) => state.volume);
+  const timerDuration = useSettings((state) => state.timer);
+
+  const totalSeconds = () => {
+    const [hours, minutes, seconds] = timerDuration.split(" -- ").map(Number);
+    return hours * 3600 + minutes * 60 + seconds;
+  };
+
+  const formatTime = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+
+    const parts = [];
+    if (h > 0) {
+      parts.push(`${h.toString().padStart(2, "0")}h`);
+    }
+    if (m > 0 || (h > 0 && parts.length === 0)) {
+      parts.push(`${m.toString().padStart(2, "0")}m`);
+    }
+    parts.push(`${s.toString().padStart(2, "0")}s`);
+
+    return parts.join(" ");
+  };
 
   useEffect(() => {
     // Load and play sound on component mount
@@ -50,13 +75,23 @@ export default function ColorSort() {
     };
     loadSound();
 
+    // Set the initial timer duration from the store
+    setTimeLeft(totalSeconds());
+
     // Start the timer countdown
     timerRef.current = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timerRef.current!);
-          Alert.alert("Time's up!", "Moving to the next level.");
-          setIsSorted(true); // Show the Next Level button when time runs out
+          Alert.alert("Time's up!", "Game Over.", [
+            { text: "Play Again", onPress: () => router.replace("ColorSort") },
+            {
+              text: "Exit",
+              onPress: () => {
+                router.replace("Relax");
+              },
+            },
+          ]);
           return 0;
         }
         return prev - 1;
@@ -72,7 +107,7 @@ export default function ColorSort() {
         clearInterval(timerRef.current);
       }
     };
-  }, [volume]);
+  }, [volume, timerDuration]);
 
   // Stop sound if volume is off
   useEffect(() => {
@@ -200,7 +235,7 @@ export default function ColorSort() {
       >
         Level {level}
       </Text>
-      <Text style={styles.timer}>Time Left: {timeLeft}s</Text>
+      <Text style={styles.timer}>Time Left: {formatTime(timeLeft)}</Text>
       <View style={styles.container}>
         <View style={styles.colorGrid}>
           {colorGrid.map((item, index) => {
@@ -256,13 +291,23 @@ export default function ColorSort() {
                 );
                 setIsSorted(false);
                 setLevel(level + 1);
-                setTimeLeft(60); // Reset timer for the next level
+                setTimeLeft(totalSeconds());
                 timerRef.current = setInterval(() => {
                   setTimeLeft((prev) => {
                     if (prev <= 1) {
                       clearInterval(timerRef.current!);
-                      Alert.alert("Time's up!", "Moving to the next level.");
-                      setIsSorted(true);
+                      Alert.alert("Time's up!", "Game Over.", [
+                        {
+                          text: "Play Again",
+                          onPress: () => router.replace("ColorSort"),
+                        },
+                        {
+                          text: "Exit",
+                          onPress: () => {
+                            router.replace("Relax");
+                          },
+                        },
+                      ]);
                       return 0;
                     }
                     return prev - 1;
