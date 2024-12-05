@@ -69,7 +69,9 @@ const HomeScreen: React.FC = () => {
             })
           );
 
-          const newItems = imageUrls.map((imageUrl, index) => ({
+          const shuffledUrls = imageUrls.sort(() => Math.random() - 0.5); // Shuffle the URLs for randomness
+
+          const newItems = shuffledUrls.map((imageUrl, index) => ({
             id: `quote-${index}`,
             image: imageUrl,
             openIndex: [0],
@@ -125,6 +127,15 @@ const HomeScreen: React.FC = () => {
             source={require("@Assets/logo-light.png")}
             style={styles.logo}
           />
+          <Link href={"/Reports"}>
+            <FontAwesome
+              name="bar-chart"
+              size={20}
+              color="#333"
+              style={styles.settingsIcon}
+            />
+          </Link>
+
           <Link href={"/Profile"}>
             <FontAwesome
               name="gear"
@@ -238,6 +249,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     alignItems: "center",
     marginBottom: 25,
+    gap: 8,
   },
   logo: {
     width: 100,

@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: 100,
     top: -60,
-    zIndex: -1,
+    zIndex: 1,
   },
   formTitle: {
     textAlign: "center",

@@ -150,6 +150,7 @@ const Session: React.FC = () => {
       setSelectedSession(session);
     }
     if (showTasks) {
+      handleRefresh();
       Animated.timing(slideAnim, {
         toValue: 500,
         duration: 300,
@@ -177,6 +178,7 @@ const Session: React.FC = () => {
 
   const handleRefresh = async () => {
     setRefreshing(true);
+    console.log("Refreshing sessions... ");
     // Fetch the latest sessions from Firebase
     try {
       const userRef = ref(
@@ -216,7 +218,14 @@ const Session: React.FC = () => {
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={styles.completedButton}
+        style={[
+          styles.completedButton,
+          {
+            borderColor: showCompleted
+              ? Colors.default.colorGreen
+              : Colors.default.colorSecondary,
+          },
+        ]}
         activeOpacity={0.7}
         onPress={() => {
           setShowCompleted(!showCompleted);
@@ -225,7 +234,11 @@ const Session: React.FC = () => {
         <FontAwesome5
           name="check-circle"
           size={18}
-          color={Colors.default.colorSecondary}
+          color={
+            showCompleted
+              ? Colors.default.colorGreen
+              : Colors.default.colorSecondary
+          }
         />
       </TouchableOpacity>
 
@@ -318,6 +331,12 @@ const Session: React.FC = () => {
                   style={styles.sessionImage}
                 />
                 <Text style={styles.sessionButtonText}>{session.title}</Text>
+
+                {session?.progress !== 0 && (
+                  <Text style={styles.sessionPercentage}>
+                    {session.progress && session.progress.toFixed(0)}%
+                  </Text>
+                )}
               </TouchableOpacity>
             )
         )}
@@ -368,7 +387,7 @@ const styles = StyleSheet.create({
     right: 15,
     borderRadius: 3,
     borderWidth: 1,
-    borderColor: Colors.default.colorSecondary,
+
     aspectRatio: 1,
     height: 40,
     width: 40,
@@ -425,6 +444,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingVertical: 15,
     alignItems: "center",
+    justifyContent: "center",
     aspectRatio: 1,
     flexDirection: "column",
   },
@@ -432,8 +452,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.default.colorBlue,
   },
   sessionImage: {
-    width: "90%",
-    height: 60,
+    width: "80%",
+    height: 50,
     resizeMode: "contain",
   },
   addSessionButton: {
@@ -444,6 +464,14 @@ const styles = StyleSheet.create({
     color: Colors.default.colorPrimary,
     fontFamily: "HazelnutMilktea-Bold",
     marginTop: 8,
+  },
+  sessionPercentage: {
+    position: "absolute",
+    top: 5,
+    right: 5,
+    fontSize: 14,
+    color: Colors.default.colorPrimary,
+    fontWeight: "bold",
   },
   addSessionButtonText: {
     color: "#fff",

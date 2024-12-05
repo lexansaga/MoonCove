@@ -81,28 +81,66 @@ const Gallery = () => {
       </View>
       <Text style={styles.title}>Your Gallery</Text>
       <View style={styles.gallery}>
-        {galleryItems.map((item, index) => (
-          <TouchableOpacity
-            key={index}
-            style={styles.imageContainer}
-            activeOpacity={0.7}
-            onPress={() => handleItemPress(item.id)}
-          >
-            <Image
-              source={require("@Assets/border.png")} // Replace with your border image path
-              style={styles.border}
-            />
+        {galleryItems.map((item, index) => {
+          const isLocked =
+            index > 0 && galleryItems[index - 1].status !== "completed"; // Determine if the item should be locked
 
-            {item.status === "in-progress" || item.status === "completed" ? (
-              <Image source={{ uri: item.image }} style={styles.image} />
-            ) : (
+          return (
+            <TouchableOpacity
+              key={index}
+              style={styles.imageContainer}
+              activeOpacity={isLocked ? 1 : 0.7} // Disable interaction for locked items
+              onPress={() => !isLocked && handleItemPress(item.id)}
+            >
               <Image
-                source={require("@Assets/lock.png")} // Replace with your lock icon path
-                style={styles.lockIcon}
+                source={require("@Assets/border.png")} // Replace with your border image path
+                style={styles.border}
               />
-            )}
-          </TouchableOpacity>
-        ))}
+
+              {item.status === "completed" ? (
+                // Show fully visible image for completed items
+                <Image source={{ uri: item.image }} style={styles.image} />
+              ) : item.status === "in-progress" ? (
+                // Show blurred image with lock icon for in-progress items
+                <>
+                  <View style={styles.blurOverlay}></View>
+                  <Image
+                    source={require("@Assets/lock.png")} // Replace with your lock icon path
+                    style={styles.lockIcon}
+                  />
+                  <Image source={{ uri: item.image }} style={styles.image} />
+                </>
+              ) : item.status === "pending" || isLocked ? (
+                // Show blurred image with lock icon for pending/locked items
+                <>
+                  <View
+                    style={{
+                      position: "absolute",
+                      width: "100%",
+                      height: "100%",
+                      backgroundColor: "rgba(255, 255, 255, 0.9)", // Semi-transparent white overlay
+                      zIndex: 1,
+                      borderRadius: 10, // Optional: Adjust based on your design
+                    }}
+                  ></View>
+                  <Image
+                    source={require("@Assets/lock.png")} // Replace with your lock icon path
+                    style={{
+                      position: "absolute",
+                      width: 30,
+                      height: 30,
+                      top: "10%",
+                      left: "45%",
+                      objectFit: "contain",
+                      zIndex: 2,
+                    }}
+                  />
+                  <Image source={{ uri: item.image }} style={styles.image} />
+                </>
+              ) : null}
+            </TouchableOpacity>
+          );
+        })}
       </View>
     </ScrollView>
   );
@@ -163,7 +201,15 @@ const styles = StyleSheet.create({
     height: "100%",
     resizeMode: "stretch",
     position: "absolute",
+    zIndex: 2,
+  },
+  blurOverlay: {
+    position: "absolute",
+    width: "100%",
+    height: "100%",
+    backgroundColor: "rgba(255, 255, 255, 0.8)", // Semi-transparent white overlay
     zIndex: 1,
+    borderRadius: 10, // Optional: Adjust based on your design
   },
   image: {
     width: "100%",
@@ -174,10 +220,10 @@ const styles = StyleSheet.create({
   },
   lockIcon: {
     position: "absolute",
-    width: 25,
-    height: 25,
-    top: "6%",
-    left: "43%",
+    width: 18,
+    height: 18,
+    top: "0%",
+    right: "15%",
     objectFit: "contain",
     zIndex: 2,
   },

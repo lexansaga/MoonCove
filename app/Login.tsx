@@ -186,7 +186,7 @@ const Login: React.FC = () => {
             onChangeText={setPassword}
           />
 
-          <Button title="Signin" onPress={handleLogin} variant={"Primary"} />
+          <Button title="Sign in" onPress={handleLogin} variant={"Primary"} />
 
           <FloatingGlitter top={15} bottom={0} left={15} />
           <FloatingGlitter top={230} bottom={0} left={280} right={10} />

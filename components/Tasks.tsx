@@ -15,7 +15,7 @@ import Button from "./Button";
 import ModalComponent from "@Components/Modal";
 import { ref, push, update, onValue, get, remove } from "firebase/database";
 import { authentication, database } from "@/firebase/Firebase";
-
+import * as Notifications from "expo-notifications";
 interface Task {
   id: string;
   title: string;
@@ -217,10 +217,26 @@ const Tasks: React.FC<TasksProps> = ({
   useEffect(() => {
     async function updateGalleryOpenPuzzle() {
       console.log(progressPercentage);
+
       // Check if the session is 100% complete and update the Gallery item
       if (progressPercentage === 100) {
+        // Trigger a System UI Notification
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: "Congratulations!",
+            body: `The session "${title}" is now 100% complete!`,
+            sound: true,
+            sticky: false, // Non-persistent notification
+            priority: Notifications.AndroidNotificationPriority.HIGH,
+          },
+          trigger: null, // Show the notification immediately
+        });
+
+        // Perform the gallery update
         await updateGalleryItem();
       }
+
+      // Update progress in Firebase if a session exists
       if (sessionData && sessionData?.id) {
         const sessionRef = ref(
           database,

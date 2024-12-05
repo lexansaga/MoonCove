@@ -46,7 +46,7 @@ const Productivity: React.FC = () => {
   useEffect(() => {
     const fetchSessions = async () => {
       if (!currentUserId) {
-        Alert.alert("Error", "User ID is missing.");
+        // Alert.alert("Error", "User ID is missing.");
         return;
       }
 

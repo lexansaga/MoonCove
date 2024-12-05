@@ -23,7 +23,11 @@
       "eas": {
         "projectId": "212ab660-7b6d-423b-a29e-7e3159782aed"
       }
-    }
+    },
+    "plugins": [
+      "expo-font",
+      "expo-router"
+    ]
   },
   "ios": {
     "supportsTablet": true,
