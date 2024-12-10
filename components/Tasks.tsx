@@ -221,6 +221,10 @@ const Tasks: React.FC<TasksProps> = ({
       // Check if the session is 100% complete and update the Gallery item
       if (progressPercentage === 100) {
         // Trigger a System UI Notification
+        Alert.alert(
+          "Congratulations!",
+          `The session "${title}" is now 100% complete!`
+        );
         await Notifications.scheduleNotificationAsync({
           content: {
             title: "Congratulations!",

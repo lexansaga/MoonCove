@@ -23,6 +23,7 @@ import {
 import { get, ref } from "firebase/database";
 import { authentication, database } from "@/firebase/Firebase";
 import useUser from "@/store/User.store";
+import * as Notifications from "expo-notifications";
 
 const Login: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
@@ -44,11 +45,33 @@ const Login: React.FC = () => {
             ToastAndroid.LONG,
             ToastAndroid.CENTER
           );
-          // Optionally, you can sign out the user here to force them to verify their email
           authentication.signOut();
         }
       }
     });
+
+    // Check notification permissions
+    const checkNotificationPermissions = async () => {
+      const { status } = await Notifications.getPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Enable Notifications",
+          "This app requires notification permissions for important updates. Please enable notifications in your settings.",
+          [
+            {
+              text: "Cancel",
+              style: "cancel",
+            },
+            {
+              text: "Open Settings",
+              onPress: () => Notifications.requestPermissionsAsync(),
+            },
+          ]
+        );
+      }
+    };
+
+    checkNotificationPermissions();
 
     // Cleanup subscription on unmount
     return () => unsubscribe();
@@ -103,11 +126,11 @@ const Login: React.FC = () => {
         );
         router.replace("/HomeScreen"); // Use replace to prevent going back to login
       } else {
-        // ToastAndroid.showWithGravity(
-        //   "User data not found in the database.",
-        //   ToastAndroid.LONG,
-        //   ToastAndroid.CENTER
-        // );
+        ToastAndroid.showWithGravity(
+          "User data not found in the database.",
+          ToastAndroid.LONG,
+          ToastAndroid.CENTER
+        );
       }
     } catch (error: any) {
       console.error("Error during login:", error);

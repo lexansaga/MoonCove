@@ -42,6 +42,7 @@ TaskManager.defineTask(BACKGROUND_FETCH_TASK, async ({ data, error }) => {
         );
 
         if (newTime === 0) {
+          Alert.alert("Time's up!", "Your timer has ended.");
           await Notifications.scheduleNotificationAsync({
             content: {
               title: "Time's up!",
@@ -201,6 +202,7 @@ const Timer: React.FC = () => {
 
   // Show notification when the timer ends
   const showNotification = async () => {
+    Alert.alert("Time's up!", "Your timer has ended.");
     await Notifications.scheduleNotificationAsync({
       content: {
         title: "Time's up!",
